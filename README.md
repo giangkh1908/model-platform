@@ -1,9 +1,23 @@
 # Model Platform
 
-Web chạy trên máy để tải, bật/tắt và thử các model AI chạy trong WSL (GPU RTX 3060 12 GB).
+[![CI](https://github.com/giangkh1908/model-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/giangkh1908/model-platform/actions/workflows/ci.yml)
 
-- Bảng điều khiển: http://127.0.0.1:8100
+Web chạy trên máy để tải, bật/tắt, thử, fine-tune và eval các model AI chạy trong WSL (GPU RTX 3060 12 GB).
+
+- Bảng điều khiển: http://127.0.0.1:8100 (bản dev: http://127.0.0.1:5173)
 - Model đang chạy phục vụ ở http://127.0.0.1:8000 (mỗi lúc chỉ chạy một model)
+
+## Vai trò trong hệ thống
+
+Đây là một trong ba repo:
+
+| Repo | Vai trò |
+| --- | --- |
+| **model-platform** (repo này) | "Phòng thí nghiệm": dataset, prompt, build, bấm train, thử model, eval |
+| `runtime-platform` | Thuật toán fine-tune. Platform gọi sang qua [runtime protocol](docs/runtime-protocol.md) |
+| `serving-platform` | Phục vụ người dùng thật: endpoint chuẩn, RAG, semantic search, Langfuse |
+
+Repo này không phục vụ người dùng cuối và không có phần giám sát (Langfuse…), những việc đó thuộc `serving-platform`.
 
 ## Cần có
 
@@ -11,12 +25,12 @@ Web chạy trên máy để tải, bật/tắt và thử các model AI chạy tr
 | --- | --- |
 | Windows + WSL (distro `Ubuntu`) | Đã cài sẵn runtime: Strands Decider, vLLM, llama.cpp |
 | Python 3.10 trở lên | Đã thử với 3.12 |
-| Node.js 18 trở lên | Chỉ cần khi build hoặc sửa giao diện |
+| Node.js 18 trở lên | Cần để build hoặc sửa giao diện (CI dùng Node 24) |
 | Driver NVIDIA | Cần lệnh `nvidia-smi` để hiện thông số GPU |
 
 ## Cài đặt (làm một lần)
 
-Mở PowerShell trong thư mục dự án:
+Mở PowerShell ở thư mục gốc dự án:
 
 ```powershell
 # 1. Thư viện Python cho backend
@@ -27,59 +41,72 @@ cd frontend
 npm install
 npm run build
 cd ..
+
+# 3. File bí mật (token…)
+copy .env.example .env
 ```
 
 Sau bước 2 sẽ có thư mục `frontend/dist`, backend phục vụ giao diện từ thư mục này.
+
+## Token Hugging Face
+
+Cần cho model gated (Llama, Gemma…). Tạo token loại *Read* tại huggingface.co/settings/tokens, rồi điền vào file `.env`:
+
+```
+HF_TOKEN=hf_xxxxxxxx
+```
+
+Khởi động lại nền tảng để nhận token mới. Kiểm tra ở trang **Cài đặt** → *Token Hugging Face*: phải hiện *Đã đặt hf_xx…xxxx* và tên tài khoản.
+
+- `.env` chứa bí mật: không commit (đã có trong `.gitignore`), không gửi cho ai.
+- Nếu Windows đã có biến môi trường `HF_TOKEN` (đặt bằng `setx`) thì biến đó được ưu tiên hơn `.env`.
 
 ## Khởi động
 
 Project chỉ chạy khi bạn khởi động nó, không có gì chạy ngầm hay tự bật cùng Windows.
 
-**Cách 1: bấm đúp `Model Platform.lnk`.** Một cửa sổ console mở ra, server chạy trong đó và tự mở trình duyệt.
+**Cách 1: bấm đúp `Model Platform.lnk`** (trong project hoặc trên Desktop). Shortcut chạy `pythonw.exe platform_server.py --open --dev`: bật backend và Vite dev server, mở trình duyệt tới cổng 5173, không hiện cửa sổ terminal. Log ghi vào `data/platform.log`.
 
 **Cách 2: dòng lệnh** (ở thư mục gốc dự án)
 
 ```powershell
 python platform_server.py --open     # tự mở trình duyệt
 python platform_server.py            # không mở trình duyệt
-
-# Hoặc gọi thẳng uvicorn (cùng một ứng dụng FastAPI)
-uvicorn backend.app:app --host 127.0.0.1 --port 8100
 ```
 
-Nếu đã có một cửa sổ đang chạy thì lệnh mới chỉ báo "cổng 8100 đang được dùng" rồi thoát, không chạy server thứ hai.
+Nếu đã có một bản đang chạy thì lệnh mới chỉ báo "cổng 8100 đang được dùng" rồi thoát.
 
 Tài liệu API do FastAPI tự tạo: http://127.0.0.1:8100/docs
 
-## Token Hugging Face
-
-Cần cho model gated (Llama, Gemma…). Token không được lưu trong `data/` hay trên giao diện; nền tảng chỉ đọc biến môi trường `HF_TOKEN` của Windows.
-
-**Đặt token (làm một lần).** Tạo token loại *Read* tại huggingface.co/settings/tokens, rồi chạy trong PowerShell:
-
-```powershell
-[Environment]::SetEnvironmentVariable("HF_TOKEN", "hf_xxxxxxxx", "User")
-```
-
-**Để có hiệu lực:**
-1. Đóng và mở lại phiên đăng nhập Windows, hoặc khởi động lại Explorer trong Task Manager. Shortcut lấy biến từ Explorer nên cần bước này.
-2. Tắt tiến trình `pythonw.exe` cũ trong Task Manager (nếu đang chạy), rồi mở lại shortcut. Server cũ không tự nhận token mới.
-
-**Kiểm tra:** vào trang **Cài đặt** → mục *Token Hugging Face* phải hiện *Đã đặt hf_tk…xxxx* và tên tài khoản. Nếu hiện *Chưa đặt HF_TOKEN* thì làm lại hai bước trên.
-
-**Đổi hoặc xóa token:** chạy lại lệnh trên với giá trị mới, hoặc thay `"hf_xxxxxxxx"` bằng `$null` để xóa. Sau đó làm lại bước 1 và 2.
-
 ## Tắt
 
-**Đóng hết tab giao diện là nền tảng tự tắt** sau khoảng 5 giây. Khi tắt, server cũng tắt luôn model đang chạy trong WSL để trả VRAM. Tải lại trang (F5) không làm tắt server. Nếu cần tắt tay thì dùng Task Manager, kết thúc tiến trình `pythonw.exe`.
+**Đóng hết tab giao diện là nền tảng tự tắt** sau khoảng 5 giây, kèm tắt model đang chạy trong WSL để trả VRAM và tắt Vite. Tải lại trang (F5) không làm tắt server. Còn việc trong hàng đợi fine-tune thì nền tảng không tự tắt, để train qua đêm không cần mở tab.
+
+Cần tắt tay thì dùng Task Manager, kết thúc tiến trình `pythonw.exe` đang chạy `platform_server.py`.
 
 Trên giao diện còn có:
-- **Tắt model** (trả VRAM, server vẫn chạy).
-- **Tắt hẳn WSL** (tắt model và toàn bộ WSL, trả RAM cho Windows).
+- **Tắt model**: trả VRAM, server vẫn chạy.
+- **Tắt hẳn WSL**: tắt model và toàn bộ WSL, trả RAM cho Windows.
 
-## Sửa code (chế độ phát triển)
+## Dataset, Prompt, Build, Finetune, Eval
 
-Mở hai cửa sổ terminal:
+Các mục trên thanh bên, đi theo thứ tự:
+
+1. **Dataset**: đẩy file (JSONL / JSON / CSV / TSV), chọn cột, lưu thành dataset. Dataset dùng cho build (train) và làm tập golden để eval.
+2. **Prompt**: template (khung prompt có chỗ `{policy}`, `{input}` và phần output) và policy (đoạn luật). Mỗi lần sửa là một phiên bản mới, phiên bản cũ giữ nguyên.
+3. **Build dataset**: ghép template + các cặp (policy, dataset) thành một phiên bản dữ liệu (`intent v1`), mỗi dòng thành một prompt hoàn chỉnh. Tuỳ chọn bỏ dòng trùng và chia train/val ngẫu nhiên (5–30%), hoặc thêm phần eval riêng. Có thêm dữ liệu thì mở build cũ, bấm **Tạo phiên bản mới** → `intent v2`. Build giữ bản sao dữ liệu và prompt đã dùng, nên train lại luôn ra đúng dữ liệu cũ.
+4. **Finetune**: chọn build + model (model gốc, hoặc adapter đã thêm vào danh sách Model để train tiếp) + tham số → **Thêm vào hàng đợi**. Trong lúc train, model được chấm định kỳ trên phần val; dashboard có train/eval loss, learning rate, tốc độ, VRAM, grad norm, accuracy/F1/ECE. **Dừng** là dừng ngay, không lưu checkpoint. Train xong giữ checkpoint có eval loss thấp nhất; **Thêm vào danh sách model** để bật và thử. Build có phần eval thì tự chấm sau khi train.
+5. **Eval**: chọn model gốc → tick các adapter đã train từ nó → chọn build. Bảng xếp hạng: accuracy, macro-F1, ECE, và TP / FP / FN / TN, precision, recall, F1, coverage tại ngưỡng riêng của từng adapter; kèm F1 từng nhãn, cặp nhãn hay nhầm và câu sai.
+
+- Hàng đợi GPU chung cho train và eval: mỗi lúc một việc, việc sau tự chạy. Tới lượt thì model đang chạy bị tắt; còn việc trong hàng đợi thì không bật được model.
+- Dữ liệu: `data/finetune/{prompts,datasets,builds,jobs,evals}/<id>/`. Checkpoint: `~/model-platform/finetune/<id>` trong WSL.
+- Platform gọi runtime theo [runtime protocol](docs/runtime-protocol.md), qua interface `RuntimeConnector` (`backend/finetune/connector.py`).
+
+Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.
+
+## Phát triển
+
+Mở hai terminal:
 
 ```powershell
 # Terminal 1: backend, tự nạp lại khi sửa file trong backend/
@@ -92,47 +119,56 @@ npm run dev
 
 Rồi mở http://127.0.0.1:5173. Các request `/api` được chuyển tiếp tới backend ở cổng 8100.
 
-Sửa xong giao diện thì chạy `npm run build` để bản ở cổng 8100 (bản shortcut mở) được cập nhật.
+### Kiểm tra code
+
+```powershell
+pip install -r requirements-dev.txt   # một lần: ruff, pytest
+
+ruff check .                          # lint Python
+pytest                                # test backend
+cd frontend
+npm run lint                          # lint giao diện
+npm run build
+```
+
+- Test chạy trên một thư mục data tạm (biến `MODEL_PLATFORM_DATA`), không đụng dữ liệu thật, không cần WSL hay GPU.
+- Đổi API (thêm, bớt, đổi đường dẫn) thì cập nhật `tests/routes.txt` cho khớp.
+
+### CI
+
+Mỗi lần push lên `main` hoặc mở pull request, GitHub Actions (`.github/workflows/ci.yml`) chạy đúng các lệnh kiểm tra ở trên trên máy Linux của GitHub. CI chỉ kiểm tra code, không chạy model hay GPU. Xem kết quả ở tab **Actions** của repo.
+
+## Cấu trúc thư mục
+
+```
+platform_server.py      file khởi động (uvicorn cổng 8100, tuỳ chọn Vite dev server)
+backend/                FastAPI
+  config.py             đường dẫn WSL, cổng, VRAM: sửa ở đây khi đổi máy; nạp .env
+  app.py                dựng app: middleware, lifespan, gộp router, phục vụ frontend/dist
+  api/                  các API /api/...: system, models, playground, finetune
+  core.py               hàm dùng chung: JSON, gọi WSL, log
+  hf.py                 đọc thông tin model trên Hugging Face
+  downloads.py          tải, tải lại, xoá model
+  runner.py             bật/tắt server model trong WSL
+  monitor.py            thông số GPU, trạng thái WSL
+  presence.py           tự tắt khi không còn tab giao diện
+  finetune/             prompt, dataset, build, job, eval, hàng đợi GPU, connector tới runtime
+frontend/               React + Vite (src/pages, src/playground, src/finetune, src/components)
+runtime/                chạy trong WSL: finetune/ (train, eval), image_server.py, tts_server.py
+tests/                  pytest
+docs/                   runtime-protocol.md
+examples/               script thử Strands Decider
+data/                   dữ liệu chạy, riêng từng máy, không commit
+```
 
 ## Gặp lỗi
 
 | Hiện tượng | Cách xử lý |
 | --- | --- |
-| PowerShell báo `npm.ps1 cannot be loaded because running scripts is disabled` | Gõ `npm.cmd` thay cho `npm` (ví dụ `npm.cmd run build`), hoặc chạy một lần `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` |
+| PowerShell báo `npm.ps1 cannot be loaded because running scripts is disabled` | Gõ `npm.cmd` thay cho `npm`, hoặc chạy một lần `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` |
 | Trang báo "Chưa build giao diện" | Chạy `npm install` rồi `npm run build` trong thư mục `frontend` |
-| Bấm shortcut thì cửa sổ console đóng ngay | Mở PowerShell và chạy `python platform_server.py` để đọc lỗi |
-| `ModuleNotFoundError: fastapi` | Chạy `pip install -r requirements.txt` bằng đúng bản Python mà shortcut dùng |
-| Báo "cổng 8100 đang được dùng" nhưng không thấy cửa sổ nào | Chạy `Get-NetTCPConnection -LocalPort 8100 -State Listen \| ForEach-Object { Stop-Process -Id $_.OwningProcess }` rồi khởi động lại |
+| Bấm shortcut mà không thấy gì mở ra | Xem `data/platform.log`, hoặc chạy `python platform_server.py --open` trong PowerShell để đọc lỗi |
+| `ModuleNotFoundError: fastapi` (hoặc `dotenv`) | Chạy `pip install -r requirements.txt` bằng đúng bản Python mà shortcut dùng |
+| Báo "cổng 8100 đang được dùng" nhưng không thấy gì chạy | Chạy `Get-NetTCPConnection -LocalPort 8100 -State Listen \| ForEach-Object { Stop-Process -Id $_.OwningProcess }` rồi khởi động lại |
 | "Runtime … chưa được cài" | Vào trang Cài đặt → "Runtime trong WSL" để xem đường dẫn còn thiếu |
 | Model gated (Llama, Gemma…) không tải được | Kiểm tra mục [Token Hugging Face](#token-hugging-face) và bấm đồng ý điều khoản trên trang model |
-
-## Cấu trúc thư mục
-
-```
-platform_server.py   file khởi động (uvicorn, cổng 8100)
-backend/             FastAPI
-  config.py          đường dẫn WSL, cổng, VRAM: sửa ở đây khi đổi máy
-  app.py             các API /api/...
-  hf.py              đọc thông tin model trên Hugging Face
-  downloads.py       tải, tải lại, xoá model
-  runner.py          bật/tắt server model trong WSL
-  monitor.py         đọc thông số GPU, trạng thái WSL
-frontend/            React + Vite (src/pages, src/playground, src/components)
-data/                models.json (danh sách model), settings.json, platform.log (không chứa token)
-examples/            script thử Strands Decider
-runtime/             image_server.py: máy chủ sinh ảnh (diffusers), chạy trong venv ~/model-platform/runtimes/diffusers
-```
-
-## Dataset, Build dataset, Finetune, Eval
-
-Bốn mục trên thanh bên, đi theo thứ tự:
-
-1. **Dataset**: đẩy file (JSONL / JSON / CSV / TSV), chọn cột, lưu thành dataset. Dataset dùng cho build (train) và làm tập golden để eval.
-2. **Build dataset**: ghép một hoặc nhiều dataset thành một phiên bản dữ liệu (`intent v1`), tuỳ chọn bỏ dòng trùng, chia train/val ngẫu nhiên (5–30%). Có thêm dữ liệu thì mở build cũ, bấm **Tạo phiên bản mới** (điền sẵn tên và dataset cũ), tick thêm dataset mới → `intent v2`. Build giữ bản sao dữ liệu nên train lại luôn ra đúng dữ liệu cũ.
-3. **Finetune**: chọn build + model (model gốc, hoặc adapter đã thêm vào danh sách Model để train tiếp) + tham số → **Thêm vào hàng đợi**. Trong lúc train, model được chấm định kỳ trên phần val của build; dashboard có train loss / eval loss, learning rate, tốc độ, VRAM, grad norm, accuracy/F1/ECE trên val. **Dừng** là dừng ngay, không lưu checkpoint. Train xong giữ checkpoint có eval loss thấp nhất; **Thêm vào danh sách model** để bật và thử.
-4. **Eval**: chọn model gốc → hiện các adapter đã train từ nó → tick adapter muốn so (không tick thì chỉ chấm model gốc) → chọn dataset golden. Bảng xếp hạng: accuracy, macro-F1, ECE, và TP / FP / FN / TN, precision, recall, F1, coverage tại ngưỡng riêng của từng adapter; kèm F1 từng nhãn của mọi model, cặp nhãn hay nhầm và câu sai.
-
-- Hàng đợi GPU chung cho train và eval: mỗi lúc một việc, việc sau tự chạy. Tới lượt thì model đang chạy bị tắt; còn việc trong hàng đợi thì không bật được model và nền tảng không tự tắt khi đóng tab.
-- Dữ liệu: `data/finetune/{datasets,builds,jobs,evals}/<id>/`. Checkpoint: `~/model-platform/finetune/<id>` trong WSL.
-
-Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `store.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.

@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import time
 
-from ..config import wsl_path
-from ..core import load_json, q, save_json
+from ..core import load_json, save_json
 from ..registry import REG
 from . import builds, jobs
+from .connector import PROTOCOL_VERSION
 from .gpu_queue import QUEUE, RUNNERS, Runner
 from .store import MetaStore, clean_name, make_id, write_jsonl
 from .tasks import task_of
@@ -94,7 +94,7 @@ def create(body: dict) -> dict:
     })
     folder = EVALS.dir(meta["id"])
     write_jsonl(folder / "golden.jsonl", rows)
-    save_json(folder / "eval.json", {"targets": targets})
+    save_json(folder / "eval.json", {"protocol": PROTOCOL_VERSION, "targets": targets})
     QUEUE.enqueue(KIND, meta["id"])
     return meta
 
@@ -139,7 +139,7 @@ def _prepare(meta: dict):
     folder = EVALS.dir(meta["id"])
     (folder / "status.json").unlink(missing_ok=True)
     (folder / "report.json").unlink(missing_ok=True)
-    return folder, f"eval {meta['task']} {q(wsl_path(folder))}", f"eval {meta['id']}"
+    return folder, f"eval {meta['id']}"
 
 
-RUNNERS[KIND] = Runner(store=EVALS, prepare=_prepare, python=lambda m: task_of(m["task"]).runtime_python)
+RUNNERS[KIND] = Runner(store=EVALS, command="eval", prepare=_prepare, python=lambda m: task_of(m["task"]).runtime_python)

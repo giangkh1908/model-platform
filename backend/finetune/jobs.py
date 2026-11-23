@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import time
 
-from ..config import DEFAULT_OPTIONS, FINETUNE_OUT, wsl_path
-from ..core import LOG, load_json, q, save_json, wsl
+from ..config import DEFAULT_OPTIONS, FINETUNE_OUT
+from ..core import LOG, load_json, save_json
 from ..registry import REG
 from . import builds
+from .connector import CONNECTOR, PROTOCOL_VERSION
 from .gpu_queue import QUEUE, RUNNERS, Runner
 from .store import MetaStore, clean_name, make_id, read_jsonl, write_jsonl
 from .tasks import task_of
@@ -50,8 +51,8 @@ def create(body: dict) -> dict:
     folder = JOBS.dir(jid)
     write_jsonl(folder / "train.jsonl", train)
     write_jsonl(folder / "val.jsonl", val)
-    save_json(folder / "job.json", {"id": jid, "task": task.id, "base_path": base["path"], "output_dir": output_dir,
-                                    "params": params, "task_config": task_config})
+    save_json(folder / "job.json", {"protocol": PROTOCOL_VERSION, "id": jid, "task": task.id, "base_path": base["path"],
+                                    "output_dir": output_dir, "params": params, "task_config": task_config})
     QUEUE.enqueue(KIND, jid)
     LOG.add(f"=== Thêm job fine-tune {jid} vào hàng đợi ===")
     return meta
@@ -118,7 +119,7 @@ def delete(jid: str) -> str:
         raise ValueError("Job đang chờ hoặc đang chạy, hãy dừng trước.")
     if m.get("registered_model") and REG.get(m["registered_model"]):
         raise ValueError(f"Checkpoint đang dùng cho model {m['registered_model']}: xoá model đó trong trang Model trước.")
-    wsl(f"rm -rf {q(m['output_dir'])}", 60)
+    CONNECTOR.remove_output(m["output_dir"])
     JOBS.delete(jid)
     LOG.add(f"=== Xoá job fine-tune {jid} ===")
     return "Đã xoá job và checkpoint."
@@ -135,12 +136,12 @@ def _prepare(meta: dict):
     folder = JOBS.dir(meta["id"])
     (folder / "metrics.jsonl").unlink(missing_ok=True)
     (folder / "status.json").unlink(missing_ok=True)
-    return folder, f"train {meta['task']} {q(wsl_path(folder))}", f"fine-tune {meta['id']}"
+    return folder, f"fine-tune {meta['id']}"
 
 
 def _finish(meta: dict, state: str) -> None:
     if state != "done":  # dừng hoặc lỗi giữa chừng: không giữ checkpoint dở
-        wsl(f"rm -rf {q(meta['output_dir'])}", 60)
+        CONNECTOR.remove_output(meta["output_dir"])
 
 
 def _on_done(jid: str) -> None:
@@ -151,5 +152,5 @@ def _on_done(jid: str) -> None:
             LOG.add(f"=== Job {jid}: không tạo được lần tự eval: {e} ===")
 
 
-RUNNERS[KIND] = Runner(store=JOBS, prepare=_prepare, python=lambda m: task_of(m["task"]).runtime_python,
+RUNNERS[KIND] = Runner(store=JOBS, command="train", prepare=_prepare, python=lambda m: task_of(m["task"]).runtime_python,
                        finish=_finish, on_done=_on_done)
