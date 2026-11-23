@@ -182,29 +182,111 @@ function ModelErrors({ model }) {
   );
 }
 
+// Mỗi gate: precision / recall / F1 của trường hợp "có" và ECE, của từng model.
+function GateTable({ models, selectedModel }) {
+  const keys = Object.keys(selectedModel.gates || {});
+  if (!keys.length) return null;
+  return (
+    <>
+      <div className="steps-title">Gate (câu có/không)</div>
+      <p className="small muted">Precision / recall / F1 tính cho trường hợp &quot;có&quot; (dính gate), ngưỡng 50%.</p>
+      <div className="table-scroll">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Gate</th>
+              <th className="num">Câu dính</th>
+              {models.map((m) => (
+                <th key={m.key} className={`num ${m.key === selectedModel.key ? "strong" : ""}`}>
+                  P / R / F1 · {m.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {keys.map((key) => (
+              <tr key={key}>
+                <td>
+                  <code>{key}</code>
+                </td>
+                <td className="num">{selectedModel.gates[key].positives}</td>
+                {models.map((m) => {
+                  const g = m.gates?.[key];
+                  return (
+                    <td key={m.key} className={`num ${m.key === selectedModel.key ? "strong" : "muted"}`}>
+                      {g ? `${formatMetric(g.precision, "%")} / ${formatMetric(g.recall, "%")} / ${formatMetric(g.f1, "%")}` : "–"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {keys
+        .filter((key) => selectedModel.gates[key].mistakes.length)
+        .map((key) => (
+          <details key={key}>
+            <summary className="small muted">
+              Câu sai của gate {key} · {selectedModel.name} ({selectedModel.gates[key].mistakes.length})
+            </summary>
+            <div className="table-scroll">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Câu</th>
+                    <th>Đúng</th>
+                    <th className="num">P(có)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedModel.gates[key].mistakes.map((m, i) => (
+                    <tr key={i}>
+                      <td className="text">{m.text}</td>
+                      <td>
+                        <code>{m.gold === "true" ? "có" : "không"}</code>
+                      </td>
+                      <td className="num">{formatMetric(m.p_true, "%")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ))}
+    </>
+  );
+}
+
 export function EvalReport({ report }) {
   const models = ranked(report.models);
   const [selected, setSelected] = useState(models[0].key);
   const selectedModel = models.find((m) => m.key === selected) || models[0];
+  const hasIntent = Boolean(selectedModel.per_label);
 
   return (
     <div className="stack">
       <p className="small muted">
-        {report.n} câu golden. Xếp theo accuracy (bằng nhau thì macro-F1). Bấm một dòng để xem chi tiết model đó.
+        {report.n} câu golden. Xếp theo accuracy của intent (bộ chỉ có gate: trung bình các gate). Bấm một dòng để xem chi tiết model đó.
       </p>
       <Leaderboard models={models} selected={selectedModel.key} onSelect={setSelected} />
-      <LineChart
-        title="Precision theo coverage"
-        hint="Mỗi điểm là một ngưỡng: tự động bao nhiêu câu thì phần tự động đúng bao nhiêu. Đường càng cao càng tốt."
-        xLabel="Coverage"
-        formatX={(x) => formatMetric(x, "%")}
-        unit="%"
-        dots={false}
-        series={models.map((m) => ({ label: m.name, points: m.curve.map((c) => [c.coverage, c.precision]) }))}
-      />
-      <div className="steps-title">F1 từng nhãn (yếu nhất trước, theo {selectedModel.name})</div>
-      <LabelMatrix models={models} selectedModel={selectedModel} />
-      <ModelErrors model={selectedModel} />
+      {hasIntent && (
+        <>
+          <LineChart
+            title="Intent: precision theo coverage"
+            hint="Mỗi điểm là một ngưỡng: tự động bao nhiêu câu thì phần tự động đúng bao nhiêu. Đường càng cao càng tốt."
+            xLabel="Coverage"
+            formatX={(x) => formatMetric(x, "%")}
+            unit="%"
+            dots={false}
+            series={models.filter((m) => m.curve).map((m) => ({ label: m.name, points: m.curve.map((c) => [c.coverage, c.precision]) }))}
+          />
+          <div className="steps-title">F1 từng intent (yếu nhất trước, theo {selectedModel.name})</div>
+          <LabelMatrix models={models.filter((m) => m.per_label)} selectedModel={selectedModel} />
+          <ModelErrors model={selectedModel} />
+        </>
+      )}
+      <GateTable models={models} selectedModel={selectedModel} />
     </div>
   );
 }

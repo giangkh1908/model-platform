@@ -171,8 +171,9 @@ function JobForm({ task, build, builds, setBuildId, onCreated }) {
       </div>
       {build && (
         <div className="notice small">
-          Prompt lấy từ build: template <b>{build.manifest.template.name} v{build.manifest.template.version}</b> · output "
-          {build.task_config.instructions}" · nhãn {build.task_config.labels.join(", ")}
+          Bộ quyết định từ build: system <b>{build.manifest.spec_title.system}</b>
+          {build.manifest.spec_title.intents ? ` · intent ${build.manifest.spec_title.intents}` : ""}
+          {build.manifest.spec_title.gates ? ` · gate ${build.manifest.spec_title.gates}` : ""}
           {build.has_eval ? " · có phần eval: train xong tự eval so với model gốc." : ""}
         </div>
       )}

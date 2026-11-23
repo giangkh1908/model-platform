@@ -1,8 +1,9 @@
 """Interface của một loại fine-tune. Phần chung (dataset, prompt, build, hàng đợi job, chỉ số, eval) chỉ gọi
 qua lớp này; thêm loại mới = viết một lớp con + một file runtime/finetune/<id>.py + một mục trong frontend.
 
-Dòng dữ liệu (dataset) -> `to_sample`. Lúc build, mỗi dòng được ghép với template + policy thành prompt hoàn chỉnh
-bằng `render`; runtime chỉ thấy mẫu đã ghép và cấu hình từ `build_config`."""
+Dòng dữ liệu (dataset) -> `to_sample`. Lúc build: các prompt đã chọn (system, intent, gate, đủ nội dung + phiên bản)
+thành `spec`; `make_rows` biến mẫu thành dòng "như thật" (đầu vào + nhãn theo spec) gửi runtime. Ghép spec + dòng thành
+prompt của model là việc của runtime (docs/runtime-protocol.md), platform không ghép."""
 
 from __future__ import annotations
 
@@ -101,12 +102,13 @@ class FinetuneTask(ABC):
         """Những model trong danh sách train tiếp được bằng loại này."""
 
     @abstractmethod
-    def render(self, template: dict, policy: str, sample: dict) -> dict:
-        """Dòng dữ liệu + template + policy -> mẫu đã ghép mà runtime train / chấm."""
+    def make_rows(self, spec: dict, samples: list[dict]) -> tuple[list[dict], int]:
+        """Mẫu của dataset -> dòng gửi runtime, nhãn theo đúng spec. Nhãn lạ thì ValueError.
+        Trả về (dòng, số mẫu bị bỏ vì không còn nhãn nào trong spec)."""
 
     @abstractmethod
-    def build_config(self, template: dict, rendered: list[dict]) -> dict:
-        """Cấu hình gửi cho runtime, rút từ template và các mẫu đã ghép (vd. câu hỏi, danh sách nhãn). Sai thì ValueError."""
+    def build_config(self, spec: dict, rows: list[dict]) -> dict:
+        """Cấu hình gửi runtime (task_config), thường chính là spec. Sai (vd. quá ít intent) thì ValueError."""
 
     def check_eval(self, samples: list[dict], config: dict, model_name: str) -> None:  # noqa: B027 — tuỳ chọn, mặc định không kiểm tra gì
         """Tập chấm có dùng được với model train bằng `config` không (vd. nhãn lạ). Sai thì ValueError."""

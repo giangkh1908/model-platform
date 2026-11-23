@@ -275,6 +275,8 @@ table.sim { border-collapse: collapse; font-size: 13px; font-variant-numeric: ta
 table.sim td, table.sim th { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
 table.sim th { color: var(--muted); font-weight: 600; }
 table.sim th.left { text-align: left; white-space: nowrap; }
+pre.code.diff .diff-add { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); display: block; }
+pre.code.diff .diff-del { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); display: block; text-decoration: line-through; }
 textarea.code-input { font: 12px/1.5 Consolas, monospace; white-space: pre; }
 pre.code { background: var(--code-bg); color: var(--code-text); border-radius: 8px; padding: 12px; overflow: auto; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
 

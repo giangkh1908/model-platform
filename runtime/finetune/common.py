@@ -62,6 +62,11 @@ class Task:
         """Nạp model từ `path` (model gốc hoặc checkpoint) lên GPU."""
         raise NotImplementedError
 
+    def expand(self, rows: list[dict]) -> list[dict]:
+        """Dòng của train.jsonl / val.jsonl -> mẫu train (vd. một câu người dùng thành mẫu intent + mẫu từng gate).
+        Gọi sau `load`. Mặc định: mỗi dòng là một mẫu."""
+        return rows
+
     def enable_gradient_checkpointing(self) -> None:
         raise NotImplementedError
 
@@ -122,11 +127,10 @@ def train(task: Task, job_dir: Path) -> None:
     random.seed(p["seed"])
     torch.manual_seed(p["seed"])
     rng = random.Random(p["seed"])
-    train_rows = read_jsonl(job_dir / "train.jsonl")
-    val_rows = read_jsonl(job_dir / "val.jsonl")
-
     files.status("loading", message="Đang nạp model…")
     task.load(cfg["base_path"], cfg, trainable=True)
+    train_rows = task.expand(read_jsonl(job_dir / "train.jsonl"))
+    val_rows = task.expand(read_jsonl(job_dir / "val.jsonl"))
     if p.get("gradient_checkpointing"):
         task.enable_gradient_checkpointing()
     task.model.train()

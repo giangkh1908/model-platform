@@ -57,17 +57,11 @@ def eval_metrics(entry: dict) -> dict:
 
 
 def prompt_tags(build: dict | None) -> dict:
-    """Tham chiếu prompt đã dùng: template một bản, policy có thể nhiều bản (mỗi cặp policy + dataset một bản)."""
+    """Phiên bản prompt đã dùng: prompt.system / prompt.intents / prompt.gates dạng "<tên>@v<N>"."""
     if not build:
         return {}
-    manifest = build["manifest"]
-    template = manifest["template"]
-    policies = []
-    for entry in manifest["entries"] + manifest["eval_entries"]:
-        ref = f"{entry['policy']['name']}@v{entry['policy']['version']}"
-        if ref not in policies:
-            policies.append(ref)
-    return {"prompt.template": f"{template['name']}@v{template['version']}", "prompt.policy": ", ".join(policies)}
+    titles = builds.spec_title(build["task_config"])
+    return {f"prompt.{key}": value for key, value in titles.items() if value}
 
 
 def tags_of(job: dict) -> dict:

@@ -40,7 +40,7 @@ function StatusCard({ status, onReload, loading }) {
       {status?.message && <p className="muted small">{status.message}</p>}
       <p className="muted small">
         Xuất bản ở trang chi tiết job train (nút "Xuất bản"). Gán <b>champion</b> cho bản serving-platform sẽ dùng, <b>challenger</b> cho bản
-        đang thử. Prompt không nằm trong gói: phiên bản template/policy ghi ở tag, nội dung lấy từ kho prompt.
+        đang thử. Prompt không nằm trong gói: phiên bản system / intent / gate ghi ở tag, nội dung lấy từ kho prompt (Langfuse).
       </p>
     </Card>
   );
@@ -74,8 +74,9 @@ function VersionRow({ model, version, aliases, onChanged }) {
         <div className="muted">từ {tags.base_model || "?"}</div>
       </td>
       <td className="small">
-        <div>{tags["prompt.template"] || "—"}</div>
-        <div className="muted">{tags["prompt.policy"] || ""}</div>
+        <div>{tags["prompt.system"] || "—"}</div>
+        <div className="muted">{tags["prompt.intents"] || ""}</div>
+        <div className="muted">{tags["prompt.gates"] || ""}</div>
       </td>
       {METRICS.map((m) => (
         <td key={m.key} className="small">

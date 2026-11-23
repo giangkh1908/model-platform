@@ -17,8 +17,10 @@ GET /api/finetune/evals/{item_id}
 GET /api/finetune/jobs
 GET /api/finetune/jobs/{item_id}
 GET /api/finetune/jobs/{item_id}/publish
+GET /api/finetune/prompts-status
 GET /api/finetune/prompts/{kind}
 GET /api/finetune/prompts/{kind}/{item_id}
+GET /api/finetune/prompts/{kind}/{item_id}/versions
 GET /api/finetune/queue
 GET /api/finetune/sources
 GET /api/finetune/tasks
@@ -64,4 +66,5 @@ POST /api/rerank
 POST /api/stop
 POST /api/tts
 POST /api/wsl/shutdown
+PUT /api/finetune/prompts/{kind}/{item_id}/labels/{label}
 PUT /api/registry/models/{name}/aliases/{alias}

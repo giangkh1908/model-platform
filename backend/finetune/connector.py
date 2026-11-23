@@ -15,7 +15,7 @@ from pathlib import Path
 from ..config import DISTRO, FINETUNE_RUN, wsl_path
 from ..core import popen_wsl, pump, q, wsl
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 KILL_GRACE_SECONDS = 5  # sau tín hiệu dừng (SIGINT) mà tiến trình chưa thoát thì SIGKILL
 
 

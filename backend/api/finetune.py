@@ -42,9 +42,11 @@ class BuildBody(BaseModel):
     task: str
     name: str = ""
     note: str = ""
-    template: dict
-    entries: list[dict]
-    eval_entries: list[dict] = Field(default_factory=list)
+    system: dict | None = None  # {id, version} hoặc {id, label}
+    intents: list[dict] = Field(default_factory=list)
+    gates: list[dict] = Field(default_factory=list)
+    datasets: list[str] = Field(default_factory=list)
+    eval_datasets: list[str] = Field(default_factory=list)
     dedupe: bool = True
     val_percent: float = 10
     split_seed: int = 42
@@ -74,6 +76,10 @@ class ParamsYamlBody(BaseModel):
     text: str = Field(default="", max_length=20000)
 
 
+class LabelBody(BaseModel):
+    version: int = Field(ge=1)
+
+
 class PromptBody(BaseModel):
     name: str = ""
     note: str = ""
@@ -101,6 +107,12 @@ def finetune_sources():
     return {"sources": [s.public() for s in FT_SOURCES.values()]}
 
 
+@router.get("/api/finetune/prompts-status")
+def finetune_prompts_status():
+    """Kho prompt đang dùng: langfuse (đồng bộ hai chiều) hay local."""
+    return FT_PROMPTS.status()
+
+
 @router.get("/api/finetune/prompts/{kind}")
 def finetune_prompts(kind: str):
     return {"items": FT_PROMPTS.list(kind)}
@@ -113,8 +125,19 @@ def finetune_prompt_create(kind: str, body: PromptBody):
 
 
 @router.get("/api/finetune/prompts/{kind}/{item_id}")
-def finetune_prompt(kind: str, item_id: str, version: int | None = None):
-    return FT_PROMPTS.get(kind, item_id, version)
+def finetune_prompt(kind: str, item_id: str, version: int | None = None, label: str | None = None):
+    return FT_PROMPTS.get(kind, item_id, version, label)
+
+
+@router.get("/api/finetune/prompts/{kind}/{item_id}/versions")
+def finetune_prompt_versions(kind: str, item_id: str):
+    return {"versions": FT_PROMPTS.versions(kind, item_id)}
+
+
+@router.put("/api/finetune/prompts/{kind}/{item_id}/labels/{label}")
+def finetune_prompt_label(kind: str, item_id: str, label: str, body: LabelBody):
+    FT_PROMPTS.set_label(kind, item_id, body.version, label)
+    return {"message": f"Đã gắn nhãn {label} cho v{body.version}."}
 
 
 @router.post("/api/finetune/prompts/{kind}/{item_id}")

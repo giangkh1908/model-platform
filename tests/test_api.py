@@ -51,12 +51,16 @@ def test_finetune_tasks_lists_decider(client):
 
 
 def test_prompt_crud_via_api(client):
-    created = client.post("/api/finetune/prompts/policy", json={"name": "Thử", "content": {"text": "luật"}, "note": ""})
+    created = client.post("/api/finetune/prompts/gate", json={"name": "thu_api", "content": {"text": "luật"}, "note": ""})
     assert created.status_code == 200, created.text
     item = created.json()
     assert item["version"] == 1
 
-    listed = client.get("/api/finetune/prompts/policy").json()
+    listed = client.get("/api/finetune/prompts/gate").json()
     assert any(p["id"] == item["id"] for p in listed["items"])
 
-    assert client.delete(f"/api/finetune/prompts/policy/{item['id']}").status_code == 200
+    assert client.put(f"/api/finetune/prompts/gate/{item['id']}/labels/prod", json={"version": 1}).status_code == 200
+    versions = client.get(f"/api/finetune/prompts/gate/{item['id']}/versions").json()["versions"]
+    assert versions == [{"version": 1, "note": "", "labels": ["prod"]}]
+    assert client.get(f"/api/finetune/prompts/gate/{item['id']}?label=prod").json()["version"] == 1
+    assert client.delete(f"/api/finetune/prompts/gate/{item['id']}").status_code == 200

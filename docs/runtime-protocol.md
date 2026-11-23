@@ -1,4 +1,4 @@
-# Runtime protocol v1
+# Runtime protocol v2
 
 Hợp đồng giữa **model-platform** (giao diện, dataset, prompt, build, hàng đợi) và **runtime fine-tune** (thuật toán
 train và chấm). Hai bên chỉ trao đổi qua **một thư mục chạy** và **một lệnh**, không import code của nhau. Runtime nào
@@ -26,8 +26,8 @@ python run.py eval  <task> <run_dir>
 
 | File | Nội dung |
 | --- | --- |
-| `job.json` | `{"protocol": 1, "id", "task", "base_path", "output_dir", "params", "task_config"}` |
-| `train.jsonl` | Mẫu train, mỗi dòng một object JSON đã ghép prompt (vd. decider: `{"text", "label", "input"}`) |
+| `job.json` | `{"protocol": 2, "id", "task", "base_path", "output_dir", "params", "task_config"}` |
+| `train.jsonl` | Dòng "như thật": dữ liệu thô + nhãn, **chưa ghép prompt** (decider: `{"input", "history", "intent", "gates": {key: bool}}`) |
 | `val.jsonl` | Mẫu val, cùng định dạng, không trùng dòng với train |
 
 - `base_path`: model gốc (hoặc checkpoint để train tiếp), đường dẫn phía runtime.
@@ -35,6 +35,21 @@ python run.py eval  <task> <run_dir>
 - `params`: tham số chung (`lr`, `epochs`, `batch_size`, `grad_accum`, `eval_every`, `warmup_ratio`, `weight_decay`,
   `max_grad_norm`, `log_every`, `seed`, `gradient_checkpointing`) cộng tham số riêng của loại fine-tune.
 - `task_config`: cấu hình riêng của loại, rút từ build (vd. decider: `labels`, `instructions`, `descriptions`).
+
+**Decider: `task_config` là spec của bộ quyết định** (platform lấy từ kho prompt, đủ nội dung và phiên bản):
+
+```json
+{"system":  {"name": "cskh", "version": 3, "text": "...", "intent_question": ""},
+ "intents": [{"key": "thanh_toan", "name": "thanh_toan", "version": 5, "policy": "..."}],
+ "gates":   [{"key": "lua_dao", "name": "lua_dao", "version": 2, "policy": "...", "question": ""}]}
+```
+
+**Ghép prompt là việc của runtime** (cùng một code cho train, eval và serving). Decider (`runtime/finetune/decider.py`):
+
+- state = system + policy các intent + policy các gate (giống hệt mọi request, đặt đầu để serving cache được)
+  + lịch sử + câu người dùng;
+- câu hỏi intent: `choice`, lựa chọn chỉ ghi tên intent; mỗi gate: một câu `noul`;
+- mỗi dòng thành một mẫu intent (nếu có nhãn) + một mẫu cho mỗi gate có nhãn; lúc train xáo thứ tự lựa chọn.
 
 ### Đầu ra (runtime ghi)
 

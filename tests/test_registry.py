@@ -72,7 +72,9 @@ class FakeRegistry(ModelRegistry):
         self.aliases.pop((name, check_alias(alias)), None)
 
 
-TASK_CONFIG = {"labels": ["a", "b"], "instructions": "Chọn", "descriptions": {}}
+TASK_CONFIG = {"system": {"name": "cskh", "version": 3, "text": "Bạn là CSKH"},
+               "intents": [{"key": "a", "name": "a", "version": 5}, {"key": "b", "name": "b", "version": 1}],
+               "gates": [{"key": "lua_dao", "name": "lua_dao", "version": 2}]}
 METRICS = [
     {"kind": "start", "total_steps": 4, "time": 1},
     {"kind": "eval", "step": 0, "epoch": 0, "best": True, "loss": 0.9, "acc": 0.5, "time": 2},
@@ -97,9 +99,7 @@ def fake(tmp_path, monkeypatch):
 
     builds.BUILDS.create({
         "id": "b1", "name": "Intent mới", "version": 2, "task": "decider", "created": 1, "task_config": TASK_CONFIG,
-        "manifest": {"template": {"id": "t", "name": "khung", "version": 3, "content": {}},
-                     "entries": [{"policy": {"name": "luat", "version": 5}}, {"policy": {"name": "luat", "version": 5}}],
-                     "eval_entries": [{"policy": {"name": "luat-eval", "version": 1}}]},
+        "manifest": {"datasets": [], "eval_datasets": []},
     })
     jobs.JOBS.create({
         "id": "j1", "name": "job 1", "task": "decider", "created": 1, "state": "done", "base_model": "base",
@@ -145,8 +145,9 @@ def test_log_job_records_run_and_saves_link(fake):
     logged = fake.runs[run["run_id"]]
     assert logged["status"] == "FINISHED"
     assert logged["name"] == "job 1"
-    assert logged["tags"]["prompt.template"] == "khung@v3"
-    assert logged["tags"]["prompt.policy"] == "luat@v5, luat-eval@v1"
+    assert logged["tags"]["prompt.system"] == "cskh@v3"
+    assert logged["tags"]["prompt.intents"] == "a@v5, b@v1"
+    assert logged["tags"]["prompt.gates"] == "lua_dao@v2"
     assert logged["params"]["n_train"] == 9
     assert sorted(logged["files"]["platform"]) == ["final.json", "params.json", "params.yaml", "task_config.json"]
     assert "lr: 0.0001" in logged["files"]["platform"]["params.yaml"]

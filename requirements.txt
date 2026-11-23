@@ -4,3 +4,4 @@ httpx>=0.27
 python-dotenv>=1.0
 mlflow-skinny>=3.18,<4
 pyyaml>=6
+langfuse>=5.2,<6

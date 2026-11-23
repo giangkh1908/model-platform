@@ -10,8 +10,10 @@ const ACCEPT = ".jsonl,.ndjson,.json,.csv,.tsv,.txt";
 const FORMAT_LABEL = { jsonl: "JSONL", json: "JSON", csv: "CSV", tsv: "TSV" };
 // Tên cột hay gặp, để tự chọn sẵn cột cho từng trường.
 const COLUMN_GUESSES = {
-  text: ["text", "input", "user_input", "sentence", "utterance", "utt", "content", "query", "cau", "câu", "noi_dung", "nội dung"],
-  label: ["label", "intent", "class", "category", "nhan", "nhãn", "loai", "loại", "target"],
+  input: ["text", "input", "user_input", "sentence", "utterance", "utt", "content", "query", "cau", "câu", "noi_dung", "nội dung"],
+  intent: ["intent", "label", "class", "category", "nhan", "nhãn", "loai", "loại"],
+  gates: ["gate", "gates", "flags", "co"],
+  history: ["history", "context", "lich_su", "lịch sử"],
 };
 
 function guessMapping(fields, columns) {

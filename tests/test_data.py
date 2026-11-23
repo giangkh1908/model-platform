@@ -7,7 +7,7 @@ TASK = DeciderTask()
 
 
 def samples(n: int, labels=("a", "b")) -> list[dict]:
-    return [{"text": f"câu {i}", "label": labels[i % len(labels)]} for i in range(n)]
+    return [{"input": f"câu {i}", "intent": labels[i % len(labels)], "gates": {}} for i in range(n)]
 
 
 @pytest.mark.parametrize(
@@ -46,10 +46,10 @@ def test_parse_csv():
 
 def test_to_samples_requires_mapping_and_collects_row_errors():
     with pytest.raises(ValueError, match="Chưa chọn cột"):
-        data.to_samples(TASK, [], {"text": "t"})
-    good, errors = data.to_samples(TASK, [{"t": "x", "l": "a"}, {"t": "", "l": "a"}], {"text": "t", "label": "l"})
-    assert good == [{"text": "x", "label": "a"}]
-    assert errors == [{"row": 2, "reason": "thiếu nội dung câu"}]
+        data.to_samples(TASK, [], {"intent": "l"})
+    good, errors = data.to_samples(TASK, [{"t": "x", "l": "a"}, {"t": "", "l": "a"}], {"input": "t", "intent": "l"})
+    assert good == [{"input": "x", "history": "", "intent": "a", "gates": None}]
+    assert errors == [{"row": 2, "reason": "thiếu câu của người dùng"}]
 
 
 def test_split_is_deterministic_and_disjoint():
@@ -58,7 +58,7 @@ def test_split_is_deterministic_and_disjoint():
     train2, val2, _ = data.split(TASK, rows, 0.2, seed=7)
     assert (train1, val1) == (train2, val2)
     assert len(val1) == 10 and len(train1) == 40
-    assert not {r["text"] for r in train1} & {r["text"] for r in val1}
+    assert not {r["input"] for r in train1} & {r["input"] for r in val1}
     assert stats["total"] == 50 and stats["missing_in_val"] == []
 
 
@@ -74,8 +74,8 @@ def test_split_rejects_too_little_data():
 
 
 def test_merge_dedupes_and_counts_label_conflicts():
-    part1 = [{"text": "Xin  chào", "label": "a"}, {"text": "x", "label": "a"}]
-    part2 = [{"text": "x", "label": "a"}, {"text": "xin chào", "label": "b"}]
+    part1 = [{"input": "Xin  chào", "intent": "a"}, {"input": "x", "intent": "a"}]
+    part2 = [{"input": "x", "intent": "a"}, {"input": "xin chào", "intent": "b"}]
     rows, stats = data.merge(TASK, [part1, part2], dedupe=True)
     assert len(rows) == 3
     assert stats == {"before": 4, "removed_duplicates": 1, "conflicts": 1}

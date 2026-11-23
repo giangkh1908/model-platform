@@ -3,65 +3,65 @@ import pytest
 from backend.finetune import prompts
 
 
-def test_render_body_only_replaces_placeholders():
-    template = {"body": "Luật: {policy}\nLịch sử: {history}\nCâu: {input}\nJSON mẫu: {\"a\": {b}}"}
-    out = prompts.render_body(template, "P", [{"role": "human", "content": "hi"}], "Q")
-    assert out == "Luật: P\nLịch sử: user: hi\nCâu: Q\nJSON mẫu: {\"a\": {b}}"
+@pytest.fixture
+def store(tmp_path, monkeypatch):
+    s = prompts.LocalPromptStore()
+    monkeypatch.setattr(s, "root", tmp_path)
+    return s
 
 
-@pytest.mark.parametrize(
-    ("history", "expected"),
-    [
-        (None, ""),
-        ("", ""),
-        ("  sẵn  ", "sẵn"),
-        ('[{"role": "bot", "content": "chào"}]', "AI: chào"),
-        ("[không phải json", "[không phải json"),
-        ([{"role": "assistant", "content": "x"}, "dòng thô"], "AI: x\ndòng thô"),
-    ],
-)
-def test_format_history(history, expected):
-    assert prompts.format_history(history) == expected
+def test_check_content_per_kind():
+    assert prompts.check_content("system", {"text": " Bạn là CSKH ", "intent_question": " Khách cần gì? "}) == {
+        "text": "Bạn là CSKH", "intent_question": "Khách cần gì?"}
+    assert prompts.check_content("intent", {"text": "lỗi thanh toán", "khac": 1}) == {"text": "lỗi thanh toán"}
+    assert prompts.check_content("gate", {"text": "lừa đảo"}) == {"text": "lừa đảo", "question": ""}
+    with pytest.raises(ValueError, match="Policy của gate"):
+        prompts.check_content("gate", {"text": "  "})
+    with pytest.raises(ValueError, match="system, intent hoặc gate"):
+        prompts.check_content("template", {"text": "x"})
 
 
-def test_check_content_template_needs_input_and_output():
-    with pytest.raises(ValueError, match="input"):
-        prompts.check_content("template", {"body": "không có chỗ trống", "output": "x"})
-    with pytest.raises(ValueError, match="output"):
-        prompts.check_content("template", {"body": "{input}", "output": " "})
-    assert prompts.check_content("template", {"body": " {input} ", "output": " o "}) == {"body": "{input}", "output": "o"}
+@pytest.mark.parametrize("name", ["Thanh Toan", "thanh toán", "-abc", "", "a" * 81, "a/b"])
+def test_names_must_be_dataset_labels(name):
+    with pytest.raises(ValueError, match="Tên prompt"):
+        prompts.check_name(name)
 
 
-def test_check_content_policy():
-    with pytest.raises(ValueError):
-        prompts.check_content("policy", {"text": ""})
-    assert prompts.check_content("policy", {"text": " luật "}) == {"text": "luật"}
+def test_versions_labels_and_lookup(store):
+    v1 = store.save("intent", None, "thanh_toan", {"text": "chuyển khoản, hoá đơn"}, "tạo")
+    v2 = store.save("intent", "thanh_toan", "", {"text": "chuyển khoản, hoá đơn, hoàn tiền"}, "")
+    assert (v1["id"], v1["version"], v2["version"]) == ("thanh_toan", 1, 2)
 
-
-def test_local_store_keeps_old_versions(tmp_path, monkeypatch):
-    store = prompts.LocalPromptStore()
-    monkeypatch.setattr(store, "root", tmp_path)
-
-    v1 = store.save("policy", None, "An toàn", {"text": "luật 1"}, "đầu tiên")
-    v2 = store.save("policy", v1["id"], "", {"text": "luật 2"}, "sửa")
-    assert (v1["version"], v2["version"]) == (1, 2)
-    assert store.get("policy", v1["id"], 1)["content"] == {"text": "luật 1"}
-    assert store.get("policy", v1["id"])["content"] == {"text": "luật 2"}
-    assert store.list("policy")[0]["latest"] == 2
+    store.set_label("intent", "thanh_toan", 1, "prod")
+    store.set_label("intent", "thanh_toan", 2, "dev")
+    assert store.get("intent", "thanh_toan", label="prod")["content"] == {"text": "chuyển khoản, hoá đơn"}
+    assert store.get("intent", "thanh_toan", label="dev")["version"] == 2
+    store.set_label("intent", "thanh_toan", 2, "prod")  # dời nhãn sang bản khác
+    assert store.list("intent")[0]["labels"] == {"dev": 2, "prod": 2}
+    assert [v["labels"] for v in store.versions("intent", "thanh_toan")] == [[], ["dev", "prod"]]
+    assert store.versions("intent", "thanh_toan")[0]["note"] == "tạo"
 
     with pytest.raises(ValueError, match="không đổi"):
-        store.save("policy", v1["id"], "", {"text": "luật 2"}, "")
+        store.save("intent", "thanh_toan", "", {"text": "chuyển khoản, hoá đơn, hoàn tiền"}, "")
     with pytest.raises(ValueError, match="v9"):
-        store.get("policy", v1["id"], 9)
+        store.get("intent", "thanh_toan", 9)
+    with pytest.raises(ValueError, match="Nhãn phải"):
+        store.set_label("intent", "thanh_toan", 1, "staging")
 
-    store.delete("policy", v1["id"])
-    assert store.list("policy") == []
+
+def test_label_missing_and_names_unique_across_kinds(store):
+    store.save("gate", None, "lua_dao", {"text": "đòi OTP"}, "")
+    with pytest.raises(ValueError, match="chưa có phiên bản nào mang nhãn prod"):
+        store.get("gate", "lua_dao", label="prod")
+    with pytest.raises(ValueError, match="Đã có prompt"):
+        store.save("intent", None, "lua_dao", {"text": "x"}, "")
+    store.delete("gate", "lua_dao")
+    assert store.list("gate") == []
 
 
-def test_local_store_rejects_bad_kind_and_id(tmp_path, monkeypatch):
-    store = prompts.LocalPromptStore()
-    monkeypatch.setattr(store, "root", tmp_path)
+def test_wrong_kind_and_bad_id(store):
+    store.save("system", None, "cskh", {"text": "Bạn là CSKH"}, "")
+    with pytest.raises(ValueError, match="Không có intent"):
+        store.get("intent", "cskh")
     with pytest.raises(ValueError):
-        store.get("khac", "x")
-    with pytest.raises(ValueError):
-        store.get("policy", "../ngoai")
+        store.get("system", "../ngoai")
