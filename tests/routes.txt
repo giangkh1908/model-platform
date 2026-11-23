@@ -29,10 +29,6 @@ GET /api/runtimes
 GET /api/settings
 GET /api/status
 GET /api/tts/voices
-GET,HEAD /docs
-GET,HEAD /docs/oauth2-redirect
-GET,HEAD /openapi.json
-GET,HEAD /redoc
 PATCH /api/models/{mid}
 POST /api/ask
 POST /api/chat

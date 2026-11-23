@@ -11,11 +11,13 @@ ROUTES_FILE = Path(__file__).with_name("routes.txt")
 
 
 def current_routes() -> list[str]:
+    """Lấy từ OpenAPI schema: đủ cả route trong các router đã include."""
     lines = []
-    for route in app.routes:
-        methods = getattr(route, "methods", None)
-        if methods:
-            lines.append(f"{','.join(sorted(methods))} {route.path}")
+    for path, operations in app.openapi()["paths"].items():
+        if path == "/":  # chỉ có khi chưa build frontend (vd. trên CI), không phải API
+            continue
+        for method in operations:
+            lines.append(f"{method.upper()} {path}")
     return sorted(lines)
 
 
