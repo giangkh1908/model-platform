@@ -15,6 +15,8 @@ ENV_FILE = ROOT / ".env"
 load_dotenv(ENV_FILE, override=False)
 # Test và CI trỏ sang thư mục tạm để không đụng dữ liệu thật.
 DATA = Path(os.environ.get("MODEL_PLATFORM_DATA") or ROOT / "data")
+# Model registry (MLflow server, xem docker-compose.yml). Để trống thì tắt phần xuất bản model.
+MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "").strip()
 REGISTRY_FILE = DATA / "models.json"
 SETTINGS_FILE = DATA / "settings.json"
 FRONTEND_DIST = ROOT / "frontend" / "dist"

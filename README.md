@@ -104,6 +104,43 @@ Các mục trên thanh bên, đi theo thứ tự:
 
 Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.
 
+## Model registry (MLflow + Cloudflare R2)
+
+Model train xong được **xuất bản** lên registry để `serving-platform` lấy về chạy.
+
+- **MLflow server** (chạy bằng Docker) giữ metadata: tên model, phiên bản, alias, chỉ số, tag. Database SQLite nằm trong volume Docker `mlflow-db`.
+- **Cloudflare R2** giữ file model. MLflow tự chuyển file (`--serve-artifacts`), nên platform và serving không cần key R2, chỉ cần địa chỉ MLflow.
+
+**Cài đặt (một lần):**
+
+1. Cài và bật Docker Desktop.
+2. Tạo bucket R2 `model-registry` và API token quyền *Object Read & Write* (dash.cloudflare.com → R2), rồi điền vào `.env`: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `MLFLOW_TRACKING_URI=http://127.0.0.1:5000`.
+3. Ở thư mục project: `docker compose up -d` (lần đầu build image mất vài phút). Giao diện MLflow: http://127.0.0.1:5000. Tắt: `docker compose down`.
+
+**Dùng:**
+
+- Trang chi tiết job train đã xong → **Xuất bản** → đặt tên model (cùng tên thì thành phiên bản mới). Kết quả của lần eval gần nhất có chấm job đó được đính kèm.
+- Trang **Registry**: xem các phiên bản, gán alias **champion** (bản serving dùng) hoặc **challenger** (bản đang thử).
+
+**Một phiên bản gồm:**
+
+| Ở đâu | Nội dung |
+| --- | --- |
+| `model/` (R2) | Checkpoint: LoRA, head, tokenizer, config, provenance |
+| `platform/` (R2) | `task_config.json` (nhãn, câu hỏi), `params.json`, `final.json` (ngưỡng tự động…), `eval_report.json` nếu đã eval |
+| Tag (MLflow) | `prompt.template`, `prompt.policy` dạng `<tên>@v<N>`, model gốc, build, job, eval |
+| Chỉ số (MLflow) | `eval_acc`, `eval_macro_f1`, `eval_precision_at_threshold`, `threshold`, `best_eval_loss` |
+
+Không có trong gói: model gốc (tải từ Hugging Face theo tag `base_model_repo`), dữ liệu train, và nội dung prompt (chỉ ghi phiên bản, nội dung lấy từ kho prompt).
+
+Serving tải model theo alias:
+
+```python
+import mlflow
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+path = mlflow.artifacts.download_artifacts("models:/decider-intent@champion")
+```
+
 ## Phát triển
 
 Mở hai terminal:
@@ -152,9 +189,11 @@ backend/                FastAPI
   runner.py             bật/tắt server model trong WSL
   monitor.py            thông số GPU, trạng thái WSL
   presence.py           tự tắt khi không còn tab giao diện
-  finetune/             prompt, dataset, build, job, eval, hàng đợi GPU, connector tới runtime
+  finetune/             prompt, dataset, build, job, eval, hàng đợi GPU, connector tới runtime, xuất bản
+  model_registry.py     interface ModelRegistry (MLflow)
 frontend/               React + Vite (src/pages, src/playground, src/finetune, src/components)
 runtime/                chạy trong WSL: finetune/ (train, eval), image_server.py, tts_server.py
+infra/mlflow/           Dockerfile của MLflow server (docker-compose.yml ở gốc)
 tests/                  pytest
 docs/                   runtime-protocol.md
 examples/               script thử Strands Decider
@@ -170,5 +209,6 @@ data/                   dữ liệu chạy, riêng từng máy, không commit
 | Bấm shortcut mà không thấy gì mở ra | Xem `data/platform.log`, hoặc chạy `python platform_server.py --open` trong PowerShell để đọc lỗi |
 | `ModuleNotFoundError: fastapi` (hoặc `dotenv`) | Chạy `pip install -r requirements.txt` bằng đúng bản Python mà shortcut dùng |
 | Báo "cổng 8100 đang được dùng" nhưng không thấy gì chạy | Chạy `Get-NetTCPConnection -LocalPort 8100 -State Listen \| ForEach-Object { Stop-Process -Id $_.OwningProcess }` rồi khởi động lại |
+| Trang Registry báo "Không kết nối được" | Bật Docker Desktop rồi chạy `docker compose up -d`; xem lỗi bằng `docker compose logs mlflow` |
 | "Runtime … chưa được cài" | Vào trang Cài đặt → "Runtime trong WSL" để xem đường dẫn còn thiếu |
 | Model gated (Llama, Gemma…) không tải được | Kiểm tra mục [Token Hugging Face](#token-hugging-face) và bấm đồng ý điều khoản trên trang model |

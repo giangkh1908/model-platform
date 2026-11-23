@@ -5,6 +5,7 @@ DELETE /api/finetune/jobs/{item_id}
 DELETE /api/finetune/prompts/{kind}/{item_id}
 DELETE /api/logs
 DELETE /api/models/{mid}
+DELETE /api/registry/models/{name}/aliases/{alias}
 GET /api/config
 GET /api/finetune/builds
 GET /api/finetune/builds/{item_id}
@@ -15,6 +16,7 @@ GET /api/finetune/evals/choices
 GET /api/finetune/evals/{item_id}
 GET /api/finetune/jobs
 GET /api/finetune/jobs/{item_id}
+GET /api/finetune/jobs/{item_id}/publish
 GET /api/finetune/prompts/{kind}
 GET /api/finetune/prompts/{kind}/{item_id}
 GET /api/finetune/queue
@@ -25,6 +27,8 @@ GET /api/hf/search
 GET /api/logs
 GET /api/logs/download
 GET /api/models
+GET /api/registry/models
+GET /api/registry/status
 GET /api/runtimes
 GET /api/settings
 GET /api/status
@@ -40,6 +44,7 @@ POST /api/finetune/datasets
 POST /api/finetune/evals
 POST /api/finetune/evals/{item_id}/stop
 POST /api/finetune/jobs
+POST /api/finetune/jobs/{item_id}/publish
 POST /api/finetune/jobs/{item_id}/register
 POST /api/finetune/jobs/{item_id}/stop
 POST /api/finetune/prompts/{kind}
@@ -56,3 +61,4 @@ POST /api/rerank
 POST /api/stop
 POST /api/tts
 POST /api/wsl/shutdown
+PUT /api/registry/models/{name}/aliases/{alias}

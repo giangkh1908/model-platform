@@ -12,7 +12,7 @@ import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from ..config import FINETUNE_RUN, wsl_path
+from ..config import DISTRO, FINETUNE_RUN, wsl_path
 from ..core import popen_wsl, pump, q, wsl
 
 PROTOCOL_VERSION = 1
@@ -36,6 +36,10 @@ class RuntimeConnector(ABC):
     @abstractmethod
     def remove_output(self, output_dir: str) -> None:
         """Xoá checkpoint ở `output_dir` (đường dẫn phía runtime)."""
+
+    @abstractmethod
+    def output_path(self, output_dir: str) -> Path:
+        """Thư mục checkpoint đọc được từ phía platform (vd. để xuất bản lên registry)."""
 
 
 class LocalWslConnector(RuntimeConnector):
@@ -61,6 +65,10 @@ class LocalWslConnector(RuntimeConnector):
 
     def remove_output(self, output_dir: str) -> None:
         wsl(f"rm -rf {q(output_dir)}", 60)
+
+    def output_path(self, output_dir: str) -> Path:
+        # Windows đọc thẳng file trong WSL qua \\wsl.localhost\<distro>\...
+        return Path(rf"\\wsl.localhost\{DISTRO}") / output_dir.lstrip("/")
 
 
 CONNECTOR: RuntimeConnector = LocalWslConnector()

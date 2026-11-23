@@ -1,8 +1,8 @@
 // Trang một job train: tiến độ, dashboard chỉ số (biểu đồ do backend khai báo, gồm cả eval loss chấm định kỳ trên val)
 // và tóm tắt sau train. Eval golden nằm ở trang Eval riêng. Phần riêng của từng loại lấy từ TASK_UI.
 import { useEffect, useRef, useState } from "react";
-import { Boxes, ClipboardCheck, Square, Trash2 } from "lucide-react";
-import { Bar, Card, Chip, Empty, Spinner } from "../components/ui.jsx";
+import { Boxes, ClipboardCheck, Package, Square, Trash2 } from "lucide-react";
+import { Bar, Card, Chip, Empty, Field, Spinner } from "../components/ui.jsx";
 import { api, duration, formatMetric, formatTime, saveLocal } from "../lib.js";
 import { go, useApp, useInterval } from "../store.jsx";
 import { StateChip, Tile, isActive } from "./common.jsx";
@@ -97,6 +97,7 @@ function Progress({ job, status, position }) {
 
 function Header({ job, status, position, onDeleted, reload }) {
   const { busy, run, confirm } = useApp();
+  const [publishing, setPublishing] = useState(false);
 
   async function stop() {
     if (job.state === "running") {
@@ -132,6 +133,11 @@ function Header({ job, status, position, onDeleted, reload }) {
     reload();
   }
 
+  function afterPublish() {
+    setPublishing(false);
+    reload();
+  }
+
   return (
     <Card>
       <div className="row between wrap">
@@ -157,6 +163,11 @@ function Header({ job, status, position, onDeleted, reload }) {
               <Boxes size={14} /> Thêm vào danh sách model
             </button>
           )}
+          {job.state === "done" && (
+            <button type="button" className="btn sm" onClick={() => setPublishing(!publishing)} title="Đẩy checkpoint lên model registry (MLflow + R2)">
+              <Package size={14} /> Xuất bản
+            </button>
+          )}
           {job.state !== "running" && (
             <button type="button" className="btn sm danger" disabled={busy} onClick={remove}>
               <Trash2 size={14} /> Xoá
@@ -175,6 +186,17 @@ function Header({ job, status, position, onDeleted, reload }) {
           </button>
         )}
       </div>
+      {publishing && <PublishForm job={job} onDone={afterPublish} />}
+      {job.published?.length > 0 && (
+        <div className="row wrap small">
+          <span className="muted">Đã xuất bản:</span>
+          {job.published.map((p) => (
+            <button key={`${p.name}-${p.version}`} type="button" className="btn ghost sm" onClick={() => go("registry")}>
+              {p.name} v{p.version}
+            </button>
+          ))}
+        </div>
+      )}
       <Progress job={job} status={status} position={position} />
       {job.state === "stopped" && <div className="notice">Job đã bị dừng giữa chừng nên không có checkpoint.</div>}
       {job.state === "error" && <div className="notice bad">{job.error || status.message}</div>}
@@ -185,6 +207,48 @@ function Header({ job, status, position, onDeleted, reload }) {
         </details>
       )}
     </Card>
+  );
+}
+
+// Xuất bản lên registry: tên model (cùng tên = phiên bản mới) + mô tả; tự đính kèm lần eval gần nhất của job.
+function PublishForm({ job, onDone }) {
+  const { busy, run } = useApp();
+  const [info, setInfo] = useState(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    api(`/api/finetune/jobs/${job.id}/publish`)
+      .then((data) => {
+        setInfo(data);
+        setName(data.name);
+      })
+      .catch(() => setInfo({ eval: null }));
+  }, [job.id]);
+
+  async function submit() {
+    const ok = await run(`/api/finetune/jobs/${job.id}/publish`, { method: "POST", body: { name, description } }, "Đang xuất bản…");
+    if (ok) onDone();
+  }
+
+  if (!info) return <Spinner />;
+  return (
+    <div className="notice">
+      <Field label="Tên model trên registry" hint="Chữ không dấu, số, . - _. Cùng tên với lần trước thì thành phiên bản mới.">
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Mô tả (tuỳ chọn)">
+        <input value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <div className="muted small">
+        {info.eval ? `Đính kèm kết quả eval: ${info.eval}.` : "Chưa có lần eval nào chấm job này, gói sẽ không có kết quả eval."}
+      </div>
+      <div className="row">
+        <button type="button" className="btn sm primary" disabled={busy || !name.trim()} onClick={submit}>
+          {busy ? <Spinner /> : <Package size={14} />} Xuất bản
+        </button>
+      </div>
+    </div>
   );
 }
 

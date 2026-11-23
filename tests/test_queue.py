@@ -31,6 +31,9 @@ class FakeConnector(RuntimeConnector):
     def remove_output(self, output_dir):
         pass
 
+    def output_path(self, output_dir):
+        return output_dir
+
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):

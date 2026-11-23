@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Boxes, ClipboardCheck, Database, FileText, FlaskConical, GraduationCap, Layers, LayoutDashboard, Moon, ScrollText, Settings as SettingsIcon, Sun, WifiOff } from "lucide-react";
+import { Boxes, ClipboardCheck, Database, FileText, FlaskConical, GraduationCap, Layers, LayoutDashboard, Moon, Package, ScrollText, Settings as SettingsIcon, Sun, WifiOff } from "lucide-react";
 import { ConfirmDialog, StatusDot, Toasts } from "./components/ui.jsx";
 import { loadLocal, saveLocal } from "./lib.js";
 import Builds from "./pages/Builds.jsx";
@@ -11,6 +11,7 @@ import Logs from "./pages/Logs.jsx";
 import Models from "./pages/Models.jsx";
 import Playground from "./pages/Playground.jsx";
 import Prompts from "./pages/Prompts.jsx";
+import Registry from "./pages/Registry.jsx";
 import Settings from "./pages/Settings.jsx";
 import { go, useApp, useRoute } from "./store.jsx";
 
@@ -23,6 +24,7 @@ const PAGES = [
   { id: "builds", label: "Build dataset", icon: Layers, component: Builds },
   { id: "finetune", label: "Finetune", icon: GraduationCap, component: Finetune },
   { id: "eval", label: "Eval", icon: ClipboardCheck, component: Eval },
+  { id: "registry", label: "Registry", icon: Package, component: Registry },
   { id: "logs", label: "Log", icon: ScrollText, component: Logs },
   { id: "settings", label: "Cài đặt", icon: SettingsIcon, component: Settings },
 ];

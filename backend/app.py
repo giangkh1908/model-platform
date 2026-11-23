@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import presence
-from .api import finetune, models, playground, system
+from .api import finetune, models, playground, registry, system
 from .config import DEV_ORIGINS, FRONTEND_DIST, NO_WINDOW, PANEL_HOST, PANEL_PORT, ROOT_PID_ENV
 from .core import LOG, health
 from .finetune.gpu_queue import QUEUE as FT_QUEUE
@@ -87,7 +87,7 @@ async def _httpx_error(_: Request, e: httpx.HTTPError):
 
 # ---------------------------------------------------------------- API
 
-for _router in (system.router, models.router, playground.router, finetune.router):
+for _router in (system.router, models.router, playground.router, finetune.router, registry.router):
     app.include_router(_router)
 
 
