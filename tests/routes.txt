@@ -48,6 +48,8 @@ POST /api/finetune/jobs/{item_id}/publish
 POST /api/finetune/jobs/{item_id}/register
 POST /api/finetune/jobs/{item_id}/stop
 POST /api/finetune/jobs/{item_id}/track
+POST /api/finetune/params/yaml/dump
+POST /api/finetune/params/yaml/parse
 POST /api/finetune/prompts/{kind}
 POST /api/finetune/prompts/{kind}/{item_id}
 POST /api/finetune/uploads

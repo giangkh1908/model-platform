@@ -10,6 +10,7 @@ from ..finetune import builds as ft_builds
 from ..finetune import datasets as ft_datasets
 from ..finetune import evals as ft_evals
 from ..finetune import jobs as ft_jobs
+from ..finetune import params_yaml as ft_params_yaml
 from ..finetune.gpu_queue import QUEUE as FT_QUEUE
 from ..finetune.prompts import PROMPTS as FT_PROMPTS
 from ..finetune.sources import SOURCES as FT_SOURCES
@@ -61,6 +62,16 @@ class EvalBody(BaseModel):
     build_id: str
     base_model: str
     adapters: list[str] = Field(default_factory=list)
+
+
+class ParamsBody(BaseModel):
+    task: str
+    params: dict = Field(default_factory=dict)
+
+
+class ParamsYamlBody(BaseModel):
+    task: str
+    text: str = Field(default="", max_length=20000)
 
 
 class PromptBody(BaseModel):
@@ -227,3 +238,15 @@ def finetune_eval_stop(item_id: str):
 @router.delete("/api/finetune/evals/{item_id}")
 def finetune_eval_delete(item_id: str):
     return {"message": ft_evals.delete(item_id)}
+
+
+@router.post("/api/finetune/params/yaml/dump")
+def finetune_params_dump(body: ParamsBody):
+    """Tham số trên form -> YAML có chú thích."""
+    return {"text": ft_params_yaml.dump(task_of(body.task), body.params)}
+
+
+@router.post("/api/finetune/params/yaml/parse")
+def finetune_params_parse(body: ParamsYamlBody):
+    """YAML -> tham số đã kiểm tra (cùng luật với form)."""
+    return {"params": ft_params_yaml.parse(task_of(body.task), body.text)}

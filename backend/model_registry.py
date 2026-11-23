@@ -37,9 +37,28 @@ class ModelRegistry(ABC):
     def status(self) -> dict: ...
 
     @abstractmethod
+    def start_run(self, name: str, params: dict, tags: dict) -> dict:
+        """Mở một run (đang chạy) cho một lần train. Trả về {run_id, url}."""
+
+    @abstractmethod
+    def log_points(self, run_id: str, points: list[Point]) -> None:
+        """Đẩy thêm chỉ số vào run (gọi nhiều lần trong lúc train)."""
+
+    @abstractmethod
+    def finish_run(self, run_id: str, folders: dict[str, Path], status: str) -> None:
+        """Đóng run: đẩy các thư mục (`{tên trên MLflow: thư mục trên máy}`) rồi đặt trạng thái cuối."""
+
     def log_run(self, name: str, params: dict, history: list[Point], tags: dict, folders: dict[str, Path],
                 status: str) -> dict:
-        """Ghi một lần train đã kết thúc. `folders`: {tên trên MLflow: thư mục trên máy}. Trả về {run_id, url}."""
+        """Ghi trọn một lần train đã kết thúc (vd. ghi bù). Trả về {run_id, url}."""
+        run = self.start_run(name, params, tags)
+        try:
+            self.log_points(run["run_id"], history)
+            self.finish_run(run["run_id"], folders, status)
+        except Exception:
+            self.finish_run(run["run_id"], {}, "FAILED")
+            raise
+        return run
 
     @abstractmethod
     def has_run(self, run_id: str) -> bool:
@@ -77,7 +96,13 @@ class NullRegistry(ModelRegistry):
     def _off(self):
         raise ValueError("Chưa cấu hình MLflow (MLFLOW_TRACKING_URI trong .env).")
 
-    def log_run(self, name, params, history, tags, folders, status):
+    def start_run(self, name, params, tags):
+        self._off()
+
+    def log_points(self, run_id, points):
+        self._off()
+
+    def finish_run(self, run_id, folders, status):
         self._off()
 
     def has_run(self, run_id):
@@ -140,24 +165,25 @@ class MlflowRegistry(ModelRegistry):
         for artifact_path, folder in folders.items():
             self.client.log_artifacts(run_id, str(folder), artifact_path)
 
-    def log_run(self, name: str, params: dict, history: list[Point], tags: dict, folders: dict[str, Path],
-                status: str) -> dict:
+    def start_run(self, name: str, params: dict, tags: dict) -> dict:
         from mlflow.entities import Param
 
-        if status not in RUN_STATUSES:
-            raise ValueError(f"Trạng thái run không hợp lệ: {status}.")
         experiment_id = self._experiment_id()
         run = self.client.create_run(experiment_id, run_name=name, tags=tags)
         run_id = run.info.run_id
-        try:
-            self.client.log_batch(run_id, params=[Param(k, str(v)[:6000]) for k, v in params.items()])
-            self._log_metrics(run_id, history)
-            self._log_folders(run_id, folders)
-        except Exception:
-            self.client.set_terminated(run_id, status="FAILED")
-            raise
-        self.client.set_terminated(run_id, status=status)
+        self.client.log_batch(run_id, params=[Param(k, str(v)[:6000]) for k, v in params.items()])
         return {"run_id": run_id, "url": f"{self.tracking_uri}/#/experiments/{experiment_id}/runs/{run_id}"}
+
+    def log_points(self, run_id: str, points: list[Point]) -> None:
+        self._log_metrics(run_id, points)
+
+    def finish_run(self, run_id: str, folders: dict[str, Path], status: str) -> None:
+        if status not in RUN_STATUSES:
+            raise ValueError(f"Trạng thái run không hợp lệ: {status}.")
+        try:
+            self._log_folders(run_id, folders)
+        finally:
+            self.client.set_terminated(run_id, status=status)
 
     def has_run(self, run_id: str) -> bool:
         from mlflow.exceptions import MlflowException

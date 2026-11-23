@@ -26,6 +26,7 @@ from .tasks import task_of
 JOBS = MetaStore("jobs", "job")
 KIND = "train"
 DONE_HOOKS: list = []  # hàm(job_id) gọi sau khi job train xong
+START_HOOKS: list = []  # hàm(meta) gọi khi job sắp chạy (metrics.jsonl đã được dọn)
 FINISH_HOOKS: list = []  # hàm(meta, state) gọi khi job kết thúc dù xong, lỗi hay bị dừng (vd. ghi lên MLflow)
 
 
@@ -137,6 +138,8 @@ def _prepare(meta: dict):
     folder = JOBS.dir(meta["id"])
     (folder / "metrics.jsonl").unlink(missing_ok=True)
     (folder / "status.json").unlink(missing_ok=True)
+    for hook in START_HOOKS:
+        hook(meta)
     return folder, f"fine-tune {meta['id']}"
 
 

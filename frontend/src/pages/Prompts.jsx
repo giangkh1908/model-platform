@@ -46,14 +46,12 @@ function PromptEditor({ kind, id, onSaved, onDeleted }) {
   const [item, setItem] = useState(null);
   const [version, setVersion] = useState(null);
   const [name, setName] = useState("");
-  const [note, setNote] = useState("");
   const [content, setContent] = useState(emptyContent(kind));
   const [meta, setMeta] = useState(null);
 
   useEffect(() => {
     setItem(null);
     setMeta(null);
-    setNote("");
     if (id === NEW) {
       setName("");
       setContent(emptyContent(kind));
@@ -70,7 +68,7 @@ function PromptEditor({ kind, id, onSaved, onDeleted }) {
 
   async function save() {
     const path = id === NEW ? `/api/finetune/prompts/${kind}` : `/api/finetune/prompts/${kind}/${id}`;
-    const result = await run(path, { body: { name, note, content } });
+    const result = await run(path, { body: { name, content } });
     if (result) {
       setVersion(null);
       onSaved(result.id);
@@ -85,6 +83,9 @@ function PromptEditor({ kind, id, onSaved, onDeleted }) {
   const isNew = id === NEW;
   let title = `${kind === "template" ? "Template" : "Policy"} mới`;
   if (!isNew && item) title = `${item.name} · v${item.version}`;
+  // Số phiên bản do hệ thống tự đánh: v1 khi tạo, mỗi lần lưu cộng thêm 1.
+  let saveLabel = "Lưu thành v1";
+  if (!isNew && meta) saveLabel = `Lưu thành v${meta.latest + 1}`;
 
   return (
     <Card>
@@ -116,16 +117,13 @@ function PromptEditor({ kind, id, onSaved, onDeleted }) {
         <Field label="Tên">
           <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="Ghi chú phiên bản" hint="Lần sửa này thay đổi gì (không bắt buộc).">
-          <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
-        </Field>
       </div>
       <ContentEditor kind={kind} content={content} onChange={setContent} />
       <div className="row wrap submit-row">
         <button type="button" className="btn primary" disabled={busy} onClick={save}>
-          <Save size={14} /> {isNew ? "Lưu" : "Lưu thành phiên bản mới"}
+          <Save size={14} /> {saveLabel}
         </button>
-        {!isNew && <span className="small muted">Sửa không ghi đè: lưu ra phiên bản mới, phiên bản cũ giữ nguyên.</span>}
+        <span className="small muted">Phiên bản tự đánh số (v1, v2…). Sửa không ghi đè: phiên bản cũ giữ nguyên.</span>
       </div>
     </Card>
   );

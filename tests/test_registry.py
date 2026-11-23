@@ -11,8 +11,16 @@ from backend.finetune import connector as conn
 from backend.model_registry import ModelRegistry, NullRegistry, check_alias
 
 
+def read_file(path):
+    if path.suffix == ".json":
+        return json.loads(path.read_text("utf-8"))
+    if path.suffix == ".yaml":
+        return path.read_text("utf-8")
+    return path.read_bytes()
+
+
 def read_folder(folder):
-    return {p.name: json.loads(p.read_text("utf-8")) if p.suffix == ".json" else p.read_bytes() for p in folder.iterdir()}
+    return {p.name: read_file(p) for p in folder.iterdir()}
 
 
 class FakeRegistry(ModelRegistry):
@@ -26,11 +34,20 @@ class FakeRegistry(ModelRegistry):
     def status(self):
         return {"enabled": True, "online": True}
 
-    def log_run(self, name, params, history, tags, folders, status):
+    def start_run(self, name, params, tags):
         run_id = f"run{len(self.runs) + 1}"
-        self.runs[run_id] = {"name": name, "params": params, "history": history, "tags": tags, "status": status,
-                             "files": {k: read_folder(f) for k, f in folders.items()}, "metrics": {}}
+        self.runs[run_id] = {"name": name, "params": params, "history": [], "tags": tags, "status": "RUNNING",
+                             "files": {}, "metrics": {}}
         return {"run_id": run_id, "url": f"http://mlflow/{run_id}"}
+
+    def log_points(self, run_id, points):
+        self.runs[run_id]["history"].extend(points)
+
+    def finish_run(self, run_id, folders, status):
+        run = self.runs[run_id]
+        for key, folder in folders.items():
+            run["files"].setdefault(key, {}).update(read_folder(folder))
+        run["status"] = status
 
     def has_run(self, run_id):
         return run_id in self.runs
@@ -131,7 +148,8 @@ def test_log_job_records_run_and_saves_link(fake):
     assert logged["tags"]["prompt.template"] == "khung@v3"
     assert logged["tags"]["prompt.policy"] == "luat@v5, luat-eval@v1"
     assert logged["params"]["n_train"] == 9
-    assert sorted(logged["files"]["platform"]) == ["final.json", "params.json", "task_config.json"]
+    assert sorted(logged["files"]["platform"]) == ["final.json", "params.json", "params.yaml", "task_config.json"]
+    assert "lr: 0.0001" in logged["files"]["platform"]["params.yaml"]
     job = jobs.JOBS.get("j1")
     assert (job["mlflow_run_id"], job["mlflow_url"]) == (run["run_id"], run["url"])
 
@@ -147,9 +165,59 @@ def test_finish_hook_survives_mlflow_errors(fake, monkeypatch):
     def broken(*args, **kwargs):
         raise OSError("MLflow tắt")
 
-    monkeypatch.setattr(fake, "log_run", broken)
+    monkeypatch.setattr(fake, "start_run", broken)
     jobs._finish(jobs.JOBS.get("j1"), "done")  # không được ném lỗi ra hàng đợi
     assert "mlflow_run_id" not in jobs.JOBS.get("j1")
+
+
+def write_metrics(rows, mode="a"):
+    with open(jobs.JOBS.dir("j1") / "metrics.jsonl", mode, encoding="utf-8") as f:
+        f.write("".join(json.dumps(r) + "\n" for r in rows))
+
+
+def test_live_run_streams_new_lines_once(fake, monkeypatch):
+    monkeypatch.setattr(tracking, "SYNC_SECONDS", 3600)  # tự gọi sync, không chờ luồng nền
+    write_metrics([], mode="w")
+    jobs.JOBS.update("j1", state="queued")
+    tracking.on_start(jobs.JOBS.get("j1"))
+    run_id = jobs.JOBS.get("j1")["mlflow_run_id"]
+    live = tracking.LIVE["j1"]
+    assert fake.runs[run_id]["status"] == "RUNNING"
+
+    write_metrics([{"kind": "eval", "step": 0, "loss": 0.9, "time": 1}, {"kind": "train", "step": 5, "loss": 0.5, "time": 2}])
+    live.sync()
+    write_metrics([{"kind": "train", "step": 10, "loss": 0.4, "time": 3}])
+    live.sync()
+    live.sync()  # không có dòng mới: không đẩy lại
+    loss = [(p.key, p.step) for p in fake.runs[run_id]["history"] if p.key.endswith("_loss")]
+    assert loss == [("eval_loss", 0), ("train_loss", 5), ("train_loss", 10)]
+
+    write_metrics([{"kind": "final", "best_step": 10, "time": 4}])
+    tracking.on_finish(jobs.JOBS.get("j1"), "done")
+    run = fake.runs[run_id]
+    assert run["status"] == "FINISHED"
+    assert ("final_best_step", 10) in [(p.key, p.step) for p in run["history"]]
+    assert "params.yaml" in run["files"]["platform"]
+    assert "j1" not in tracking.LIVE
+    assert len(fake.runs) == 1
+
+
+def test_live_run_start_failure_falls_back_to_logging_at_end(fake, monkeypatch):
+    real_start = fake.start_run
+    calls = []
+
+    def flaky(*args):
+        calls.append(1)
+        if len(calls) == 1:
+            raise OSError("MLflow chưa bật")
+        return real_start(*args)
+
+    monkeypatch.setattr(fake, "start_run", flaky)
+    tracking.on_start(jobs.JOBS.get("j1"))
+    assert "j1" not in tracking.LIVE
+    tracking.on_finish(jobs.JOBS.get("j1"), "stopped")
+    assert [r["status"] for r in fake.runs.values()] == ["KILLED"]
+    assert len(next(iter(fake.runs.values()))["history"]) > 0
 
 
 def test_log_job_rejects_unfinished(fake):

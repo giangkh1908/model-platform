@@ -1,25 +1,31 @@
-"""Ghi mỗi job train đã kết thúc (xong, lỗi, bị dừng) thành một run trên MLflow.
+"""Mỗi job train là một run trên MLflow, cập nhật trực tiếp trong lúc train.
 
-Run gồm: tham số, tag (build, model gốc, phiên bản prompt), lịch sử chỉ số theo bước từ metrics.jsonl (train_*, eval_*,
-final_*) và thư mục platform/ (task_config.json, params.json, final.json). Giao diện platform chỉ vẽ loss / eval loss;
-mọi chỉ số khác xem trên MLflow. MLflow tắt hay lỗi thì job vẫn kết thúc bình thường, chỉ ghi lại trong Log; ghi bù
-bằng nút "Ghi lên MLflow" ở trang job.
+Job bắt đầu: mở run (tham số, tag: build, model gốc, phiên bản prompt). Trong lúc train: cứ SYNC_SECONDS giây đọc các
+dòng mới của metrics.jsonl và đẩy sang (train_*, eval_*, final_* theo bước). Job kết thúc (xong, lỗi, bị dừng): đẩy nốt,
+thêm thư mục platform/ (task_config.json, params.json, params.yaml, final.json) rồi đóng run với trạng thái tương ứng.
+Runtime không biết gì về MLflow, chỉ ghi file theo runtime protocol.
+
+Giao diện platform chỉ vẽ loss / eval loss; mọi chỉ số khác xem trên MLflow. MLflow tắt hay lỗi thì job vẫn chạy và kết
+thúc bình thường, chỉ ghi lại trong Log; ghi bù bằng nút "Ghi lên MLflow" ở trang job.
 """
 
 from __future__ import annotations
 
 import json
 import tempfile
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 
 from ..core import LOG, load_json
 from ..model_registry import REGISTRY, Point
 from ..registry import REG
-from . import builds, evals, jobs
+from . import builds, evals, jobs, params_yaml
 from .connector import PROTOCOL_VERSION
+from .tasks import task_of
 
 RUN_STATUS = {"done": "FINISHED", "error": "FAILED", "stopped": "KILLED"}
+SYNC_SECONDS = 5
 SKIP_KEYS = {"kind", "time", "step", "epoch", "best"}  # khoá của metrics.jsonl không phải chỉ số
 
 
@@ -102,11 +108,10 @@ def flatten(prefix: str, values: dict) -> dict:
     return out
 
 
-def history(job_id: str) -> list[Point]:
-    """metrics.jsonl -> các điểm chỉ số: dòng train thành train_*, eval thành eval_*, final thành final_* (bước cuối)."""
-    rows, _ = jobs.read_metrics(job_id)
+def points_of(rows: list[dict], last_step: int = 0) -> tuple[list[Point], int]:
+    """Dòng metrics.jsonl -> điểm chỉ số: train thành train_*, eval thành eval_*, final thành final_* (ở bước cuối).
+    `last_step`: bước lớn nhất đã gặp ở các lần đọc trước. Trả về (điểm, bước lớn nhất mới)."""
     points: list[Point] = []
-    last_step = 0
     for row in rows:
         kind = row.get("kind")
         step = int(row["step"]) if row.get("step") is not None else last_step  # bước 0 là bước thật, không phải "thiếu"
@@ -120,7 +125,12 @@ def history(job_id: str) -> list[Point]:
         else:
             continue
         points.extend(Point(key, value, step, ts) for key, value in values.items())
-    return points
+    return points, last_step
+
+
+def history(job_id: str) -> list[Point]:
+    rows, _ = jobs.read_metrics(job_id)
+    return points_of(rows)[0]
 
 
 def config_files(job: dict) -> dict:
@@ -128,17 +138,19 @@ def config_files(job: dict) -> dict:
     return {
         "task_config.json": job["task_config"],
         "params.json": job["params"],
+        "params.yaml": params_yaml.dump(task_of(job["task"]), job["params"]),
         "final.json": {k: v for k, v in final.items() if k not in ("kind", "time")},
     }
 
 
 @contextmanager
 def json_folder(files: dict):
-    """Thư mục tạm chứa các file JSON, xoá khi xong."""
+    """Thư mục tạm chứa các file (chuỗi ghi nguyên văn, còn lại ghi JSON), xoá khi xong."""
     with tempfile.TemporaryDirectory(prefix="mlflow-") as tmp:
         folder = Path(tmp)
         for filename, content in files.items():
-            (folder / filename).write_text(json.dumps(content, ensure_ascii=False, indent=2), "utf-8")
+            text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+            (folder / filename).write_text(text, "utf-8")
         yield folder
 
 
@@ -156,14 +168,87 @@ def log_job(job_id: str, state: str | None = None) -> dict:
     return run
 
 
+class LiveRun:
+    """Đẩy các dòng mới của metrics.jsonl sang run MLflow trong lúc job train (luồng nền)."""
+
+    def __init__(self, job_id: str, run_id: str) -> None:
+        self.job_id = job_id
+        self.run_id = run_id
+        self.cursor = 0
+        self.last_step = 0
+        self.warned = False
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self) -> LiveRun:
+        self.thread.start()
+        return self
+
+    def sync(self) -> None:
+        with self.lock:  # luồng nền và lần đẩy cuối không được đọc cùng một đoạn hai lần
+            rows, cursor = jobs.read_metrics(self.job_id, self.cursor)
+            points, last_step = points_of(rows, self.last_step)
+            if points:
+                REGISTRY.log_points(self.run_id, points)
+            self.cursor, self.last_step = cursor, last_step
+
+    def _loop(self) -> None:
+        while not self.stop_event.wait(SYNC_SECONDS):
+            try:
+                self.sync()
+            except Exception as e:  # MLflow tạm lỗi: thử lại lần sau, dòng chưa đẩy vẫn còn trong file
+                if not self.warned:
+                    LOG.add(f"=== Job {self.job_id}: chưa đẩy được chỉ số lên MLflow ({e}), sẽ thử lại. ===")
+                    self.warned = True
+
+    def close(self) -> None:
+        self.stop_event.set()
+        self.thread.join(timeout=SYNC_SECONDS * 2)
+        self.sync()
+
+
+LIVE: dict[str, LiveRun] = {}
+
+
+def on_start(meta: dict) -> None:
+    """Job bắt đầu train: mở run và bắt đầu đẩy chỉ số. Lỗi thì job vẫn chạy, cuối job sẽ ghi trọn một lần."""
+    if not REGISTRY.enabled:
+        return
+    try:
+        run = REGISTRY.start_run(meta["name"], params_of(meta), tags_of(meta))
+    except Exception as e:
+        LOG.add(f"=== Job {meta['id']}: không mở được run MLflow ({e}), sẽ thử ghi lúc job kết thúc. ===")
+        return
+    jobs.JOBS.update(meta["id"], mlflow_run_id=run["run_id"], mlflow_url=run["url"])
+    LIVE[meta["id"]] = LiveRun(meta["id"], run["run_id"]).start()
+
+
+def _close_live(live: LiveRun, state: str) -> None:
+    status = RUN_STATUS[state]
+    try:
+        live.close()
+        with json_folder(config_files(jobs.JOBS.get(live.job_id))) as platform_dir:
+            REGISTRY.finish_run(live.run_id, {"platform": platform_dir}, status)
+    except Exception:
+        REGISTRY.finish_run(live.run_id, {}, status)  # ít nhất cũng đóng run, không để "đang chạy" mãi
+        raise
+    LOG.add(f"=== Đã ghi job {live.job_id} lên MLflow ===")
+
+
 def on_finish(meta: dict, state: str) -> None:
     """Hook sau khi job kết thúc: không để lỗi MLflow làm hỏng hàng đợi."""
     if not REGISTRY.enabled:
         return
+    live = LIVE.pop(meta["id"], None)
     try:
-        log_job(meta["id"], state)
+        if live:
+            _close_live(live, state)
+        else:
+            log_job(meta["id"], state)
     except Exception as e:  # MLflow tắt, mạng lỗi…: job vẫn xong, ghi bù sau
         LOG.add(f"=== Job {meta['id']}: chưa ghi được lên MLflow ({e}). Bấm \"Ghi lên MLflow\" ở trang job để ghi bù. ===")
 
 
+jobs.START_HOOKS.append(on_start)
 jobs.FINISH_HOOKS.append(on_finish)
