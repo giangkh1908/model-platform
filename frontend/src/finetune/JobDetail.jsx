@@ -164,7 +164,7 @@ function Header({ job, status, position, onDeleted, reload }) {
             </button>
           )}
           {job.state === "done" && (
-            <button type="button" className="btn sm" onClick={() => setPublishing(!publishing)} title="Đẩy checkpoint lên model registry (MLflow + R2)">
+            <button type="button" className="btn sm" onClick={() => setPublishing(!publishing)} title="Đẩy checkpoint lên model registry (MLflow)">
               <Package size={14} /> Xuất bản
             </button>
           )}

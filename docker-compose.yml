@@ -1,24 +1,30 @@
 # Model registry (MLflow). Chạy: docker compose up -d   ·   Tắt: docker compose down
-# Biến R2_* đọc từ file .env cùng thư mục (xem .env.example). Giao diện MLflow: http://127.0.0.1:5000
+# Giao diện MLflow: http://127.0.0.1:5000
+#
+# Hiện file model lưu trên máy: data/mlflow/artifacts (data/ không commit).
+# Chuyển sang Cloudflare R2: điền R2_* trong .env, bỏ dấu # ở khối "R2" bên dưới và đổi --artifacts-destination
+# thành s3://${R2_BUCKET}/mlflow. Platform và serving không phải sửa gì (chúng chỉ nói chuyện với MLflow).
 services:
   mlflow:
     build: infra/mlflow
     restart: unless-stopped
     ports:
       - "127.0.0.1:5000:5000" # chỉ máy này gọi được
-    environment:
-      MLFLOW_S3_ENDPOINT_URL: ${R2_ENDPOINT:?Điền R2_ENDPOINT trong .env}
-      AWS_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Điền R2_ACCESS_KEY_ID trong .env}
-      AWS_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Điền R2_SECRET_ACCESS_KEY trong .env}
-      AWS_DEFAULT_REGION: auto # R2 không dùng region, boto3 vẫn cần một giá trị
+    # R2:
+    # environment:
+    #   MLFLOW_S3_ENDPOINT_URL: ${R2_ENDPOINT}
+    #   AWS_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+    #   AWS_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+    #   AWS_DEFAULT_REGION: auto # R2 không dùng region, boto3 vẫn cần một giá trị
     volumes:
       - mlflow-db:/mlflow # SQLite để trong volume của Docker (bind mount từ ổ Windows dễ lỗi khoá file)
-    # --serve-artifacts: client (platform, serving) đẩy/tải file qua MLflow, không cần giữ key R2.
+      - ./data/mlflow/artifacts:/artifacts # file model, mở được từ Windows
+    # --serve-artifacts: client (platform, serving) đẩy/tải file qua MLflow, không cần biết file nằm ở đâu.
     command: >
       mlflow server
       --host 0.0.0.0 --port 5000
       --backend-store-uri sqlite:////mlflow/mlflow.db
-      --artifacts-destination s3://${R2_BUCKET:-model-registry}/mlflow
+      --artifacts-destination /artifacts
       --serve-artifacts
 
 volumes:

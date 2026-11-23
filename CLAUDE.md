@@ -7,7 +7,7 @@ Web local để tải, bật/tắt và thử các model AI chạy trong WSL (GPU
 - Phát triển: `python platform_server.py --reload` và `cd frontend && npm run dev` (http://127.0.0.1:5173, proxy `/api`).
 - Kiểm tra trước khi commit (CI chạy đúng các lệnh này, `.github/workflows/ci.yml`): `pip install -r requirements-dev.txt`, `ruff check .`, `pytest`; `cd frontend && npm run lint && npm run build`. Test chạy trên thư mục data tạm (`MODEL_PLATFORM_DATA`), không cần WSL/GPU.
 - API chia theo router trong `backend/api/` (system, models, playground, finetune); `backend/app.py` chỉ dựng app, middleware, lifespan. Đổi route thì cập nhật `tests/routes.txt`.
-- Model registry: `backend/model_registry.py` (interface `ModelRegistry`, MLflow), xuất bản job ở `backend/finetune/publish.py`. MLflow server chạy bằng `docker compose up -d`, file model trên Cloudflare R2. Prompt không đóng gói vào registry, chỉ ghi tag `<tên>@v<N>`.
+- Model registry: `backend/model_registry.py` (interface `ModelRegistry`, MLflow), xuất bản job ở `backend/finetune/publish.py`. MLflow server chạy bằng `docker compose up -d`, file model hiện lưu ở `data/mlflow/artifacts` (sau chuyển Cloudflare R2, xem chú thích trong `docker-compose.yml`). Prompt không đóng gói vào registry, chỉ ghi tag `<tên>@v<N>`.
 - Giao diện và thông báo lỗi viết bằng tiếng Việt.
 - Bí mật (vd. `HF_TOKEN`) để trong `.env` ở gốc project, nạp trong `backend/config.py`; biến Windows được ưu tiên; mẫu ở `.env.example`.
 - Phạm vi: repo này chỉ lo finetune, thử model và eval. Thuật toán finetune sẽ tách sang repo `runtime-platform`; phục vụ người dùng (endpoint, RAG, Langfuse) thuộc repo `serving-platform`, không làm ở đây.

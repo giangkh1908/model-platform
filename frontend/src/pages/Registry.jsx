@@ -1,4 +1,4 @@
-// Trang Registry: model đã xuất bản lên MLflow (file trên Cloudflare R2), các phiên bản và alias.
+// Trang Registry: model đã xuất bản lên MLflow, các phiên bản và alias.
 // champion = bản serving-platform đang dùng, challenger = bản đang thử. Xuất bản từ trang chi tiết job train.
 import { useEffect, useState } from "react";
 import { ExternalLink, Package, RefreshCw, X } from "lucide-react";

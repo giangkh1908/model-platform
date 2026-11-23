@@ -1,7 +1,7 @@
 """Model registry: nơi xuất bản model đã train để serving-platform lấy về chạy.
 
 Đi qua interface ModelRegistry. Bây giờ là MlflowRegistry: metadata (tên, phiên bản, alias, chỉ số, tag) trong
-MLflow server, file model trên Cloudflare R2 (MLflow tự chuyển file, platform không giữ key R2). Chưa đặt
+MLflow server; file model do MLflow tự chuyển tới nơi lưu (thư mục trên máy, sau này Cloudflare R2), platform không cần biết. Chưa đặt
 MLFLOW_TRACKING_URI thì là NullRegistry: mọi thao tác báo lỗi dễ hiểu, phần còn lại của platform vẫn chạy.
 """
 

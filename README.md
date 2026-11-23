@@ -104,18 +104,19 @@ Các mục trên thanh bên, đi theo thứ tự:
 
 Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.
 
-## Model registry (MLflow + Cloudflare R2)
+## Model registry (MLflow)
 
 Model train xong được **xuất bản** lên registry để `serving-platform` lấy về chạy.
 
 - **MLflow server** (chạy bằng Docker) giữ metadata: tên model, phiên bản, alias, chỉ số, tag. Database SQLite nằm trong volume Docker `mlflow-db`.
-- **Cloudflare R2** giữ file model. MLflow tự chuyển file (`--serve-artifacts`), nên platform và serving không cần key R2, chỉ cần địa chỉ MLflow.
+- **File model** hiện lưu trên máy ở `data/mlflow/artifacts`. MLflow tự chuyển file (`--serve-artifacts`), nên platform và serving chỉ cần địa chỉ MLflow, không cần biết file nằm ở đâu.
+- Sau này chuyển sang **Cloudflare R2** (để serving ở máy khác tải được): làm theo chú thích trong `docker-compose.yml`, không phải sửa code.
 
 **Cài đặt (một lần):**
 
 1. Cài và bật Docker Desktop.
-2. Tạo bucket R2 `model-registry` và API token quyền *Object Read & Write* (dash.cloudflare.com → R2), rồi điền vào `.env`: `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `MLFLOW_TRACKING_URI=http://127.0.0.1:5000`.
-3. Ở thư mục project: `docker compose up -d` (lần đầu build image mất vài phút). Giao diện MLflow: http://127.0.0.1:5000. Tắt: `docker compose down`.
+2. Trong `.env` có `MLFLOW_TRACKING_URI=http://127.0.0.1:5000`.
+3. Ở thư mục project: `docker compose up -d` (lần đầu build image mất vài phút). Giao diện MLflow: http://127.0.0.1:5000. Tắt: `docker compose down`. Container tự bật lại khi Docker Desktop khởi động.
 
 **Dùng:**
 
@@ -126,8 +127,8 @@ Model train xong được **xuất bản** lên registry để `serving-platform
 
 | Ở đâu | Nội dung |
 | --- | --- |
-| `model/` (R2) | Checkpoint: LoRA, head, tokenizer, config, provenance |
-| `platform/` (R2) | `task_config.json` (nhãn, câu hỏi), `params.json`, `final.json` (ngưỡng tự động…), `eval_report.json` nếu đã eval |
+| `model/` (file) | Checkpoint: LoRA, head, tokenizer, config, provenance |
+| `platform/` (file) | `task_config.json` (nhãn, câu hỏi), `params.json`, `final.json` (ngưỡng tự động…), `eval_report.json` nếu đã eval |
 | Tag (MLflow) | `prompt.template`, `prompt.policy` dạng `<tên>@v<N>`, model gốc, build, job, eval |
 | Chỉ số (MLflow) | `eval_acc`, `eval_macro_f1`, `eval_precision_at_threshold`, `threshold`, `best_eval_loss` |
 
