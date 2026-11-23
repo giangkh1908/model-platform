@@ -1,8 +1,8 @@
 """Cách platform nói chuyện với runtime fine-tune (xem docs/runtime-protocol.md).
 
-Hàng đợi GPU, job và eval chỉ gọi qua interface RuntimeConnector, không tự chạy lệnh WSL. Bây giờ runtime nằm ngay
-trong project (runtime/finetune/run.py) và chạy trong WSL cùng máy: LocalWslConnector. Khi runtime tách sang repo
-runtime-platform hay chạy ở máy khác, chỉ cần thêm một connector mới (vd. gọi HTTP), phần còn lại không đổi.
+Hàng đợi GPU, job và eval chỉ gọi qua interface RuntimeConnector, không tự chạy lệnh WSL. Runtime nằm ở repo
+runtime-platform (run.py, đường dẫn là FINETUNE_RUN trong config.py) và chạy trong WSL cùng máy: LocalWslConnector.
+Khi runtime chạy ở máy khác, chỉ cần thêm một connector mới (vd. gọi HTTP), phần còn lại không đổi.
 """
 
 from __future__ import annotations

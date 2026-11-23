@@ -1,7 +1,7 @@
 """Fine-tune Strands Decider với một bộ quyết định: system + các intent + các gate (prompt ở prompts.py).
 
 Mỗi câu của người dùng có thể mang nhãn intent (một trong các intent của bộ) và nhãn gate (gate nào dính). Runtime
-(runtime/finetune/decider.py) ghép: state = system + policy các intent + policy các gate + câu người dùng; câu hỏi
+(repo runtime-platform, techniques/decider.py) ghép: state = system + policy các intent + policy các gate + câu người dùng; câu hỏi
 intent là `choice`, mỗi gate một câu `noul`; mỗi câu người dùng thành một mẫu intent + một mẫu cho mỗi gate.
 """
 

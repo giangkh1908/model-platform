@@ -10,7 +10,7 @@ Web local để tải, bật/tắt và thử các model AI chạy trong WSL (GPU
 - MLflow: `backend/model_registry.py` (interface `ModelRegistry`). Mỗi job kết thúc được ghi thành run (`backend/finetune/tracking.py`, hook `jobs.FINISH_HOOKS`); xuất bản job ở `backend/finetune/publish.py` dùng lại run đó. Trang job chỉ vẽ loss / eval loss, chỉ số khác xem trên MLflow. MLflow server chạy bằng `docker compose up -d`, file model hiện lưu ở `data/mlflow/artifacts` (sau chuyển Cloudflare R2, xem chú thích trong `docker-compose.yml`). Prompt không đóng gói vào registry, chỉ ghi tag `<tên>@v<N>`.
 - Giao diện và thông báo lỗi viết bằng tiếng Việt.
 - Bí mật (vd. `HF_TOKEN`) để trong `.env` ở gốc project, nạp trong `backend/config.py`; biến Windows được ưu tiên; mẫu ở `.env.example`.
-- Phạm vi: repo này chỉ lo finetune, thử model và eval. Thuật toán finetune sẽ tách sang repo `runtime-platform`; phục vụ người dùng (endpoint, RAG, Langfuse) thuộc repo `serving-platform`, không làm ở đây.
+- Phạm vi: repo này chỉ lo finetune, thử model và eval. Thuật toán finetune đã tách sang repo `runtime-platform` (thư mục `../runtime-platform`, `FINETUNE_RUN` trong `backend/config.py`; hợp đồng ở `../runtime-platform/docs/runtime-protocol.md`); phục vụ người dùng (endpoint, RAG, Langfuse) thuộc repo `serving-platform`, không làm ở đây.
 
 ## Quy tắc code (theo plugin code-simplifier)
 

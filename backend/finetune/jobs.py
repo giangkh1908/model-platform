@@ -4,7 +4,7 @@ Câu hỏi và nhãn lấy từ build (phần output của template). Train xong
 
 data/finetune/jobs/<id>/:
   meta.json      tên, build, model gốc, trạng thái hàng đợi
-  job.json       cấu hình gửi cho runtime (runtime/finetune/common.py)
+  job.json       cấu hình gửi cho runtime (runtime-platform: runtime_platform/runner.py)
   train.jsonl, val.jsonl (chép từ build), metrics.jsonl, status.json
 Checkpoint nằm trong WSL: FINETUNE_OUT/<id> (tên thư mục = tên model mà strands-decider báo ở /health).
 """

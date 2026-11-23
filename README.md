@@ -14,7 +14,7 @@ Web chạy trên máy để tải, bật/tắt, thử, fine-tune và eval các m
 | Repo | Vai trò |
 | --- | --- |
 | **model-platform** (repo này) | "Phòng thí nghiệm": dataset, prompt, build, bấm train, thử model, eval |
-| `runtime-platform` | Thuật toán fine-tune. Platform gọi sang qua [runtime protocol](docs/runtime-protocol.md) |
+| [`runtime-platform`](https://github.com/giangkh1908/runtime-platform) | Thuật toán fine-tune. Platform gọi sang qua [runtime protocol](docs/runtime-protocol.md). Clone vào thư mục cạnh repo này |
 | `serving-platform` | Phục vụ người dùng thật: endpoint chuẩn, RAG, semantic search, Langfuse |
 
 Repo này không phục vụ người dùng cuối và không có phần giám sát (Langfuse…), những việc đó thuộc `serving-platform`.
@@ -102,7 +102,7 @@ Các mục trên thanh bên, đi theo thứ tự:
 - Dữ liệu: `data/finetune/{prompts,datasets,builds,jobs,evals}/<id>/`. Checkpoint: `~/model-platform/finetune/<id>` trong WSL.
 - Platform gọi runtime theo [runtime protocol](docs/runtime-protocol.md), qua interface `RuntimeConnector` (`backend/finetune/connector.py`).
 
-Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.
+Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Technique` (repo runtime-platform, `runtime_platform/techniques/`, đăng ký trong `techniques/__init__.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.ts`. Phần chung không cần sửa.
 
 ## MLflow: theo dõi train và model registry
 
@@ -196,10 +196,10 @@ backend/                FastAPI
   model_registry.py     interface ModelRegistry (MLflow)
 frontend/               React + Vite + TypeScript: src/api (gọi backend), src/types (kiểu dữ liệu API), src/config,
                         src/lib, src/components, src/pages, src/finetune, src/playground
-runtime/                chạy trong WSL: finetune/ (train, eval), image_server.py, tts_server.py
+runtime/                chạy trong WSL: image_server.py, tts_server.py (fine-tune ở repo runtime-platform)
 infra/mlflow/           Dockerfile của MLflow server (docker-compose.yml ở gốc)
 tests/                  pytest
-docs/                   runtime-protocol.md
+docs/                   runtime-protocol.md (trỏ sang bản gốc ở runtime-platform)
 examples/               script thử Strands Decider
 data/                   dữ liệu chạy, riêng từng máy, không commit
 ```

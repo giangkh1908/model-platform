@@ -49,7 +49,9 @@ def wsl_path(path: Path) -> str:
 IMAGE_SERVER = wsl_path(ROOT / "runtime" / "image_server.py")  # đường dẫn trong WSL tới máy chủ sinh ảnh
 TTS_SERVER = wsl_path(ROOT / "runtime" / "tts_server.py")  # máy chủ giọng nói VieNeu-TTS
 FINETUNE_DIR = DATA / "finetune"  # job, dữ liệu đã chia, chỉ số (phía Windows, backend đọc trực tiếp)
-FINETUNE_RUN = wsl_path(ROOT / "runtime" / "finetune" / "run.py")
+# Runtime fine-tune ở repo runtime-platform (cạnh repo này); đặt RUNTIME_PLATFORM_DIR nếu để chỗ khác.
+RUNTIME_PLATFORM_DIR = Path(os.environ.get("RUNTIME_PLATFORM_DIR") or ROOT.parent / "runtime-platform")
+FINETUNE_RUN = wsl_path(RUNTIME_PLATFORM_DIR / "run.py")
 FINETUNE_OUT = f"{HOME}/model-platform/finetune"  # checkpoint sau fine-tune (phía WSL, đọc ghi nhanh hơn /mnt/c)
 DECIDER_PY = f"{HOME}/strands-decider/.venv/bin/python"
 VIENEU_PY = f"{HOME}/model-platform/runtimes/tts/.venv/bin/python"

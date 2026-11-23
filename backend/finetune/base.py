@@ -1,5 +1,5 @@
 """Interface của một loại fine-tune. Phần chung (dataset, prompt, build, hàng đợi job, chỉ số, eval) chỉ gọi
-qua lớp này; thêm loại mới = viết một lớp con + một file runtime/finetune/<id>.py + một mục trong frontend.
+qua lớp này; thêm loại mới = viết một lớp con + một kỹ thuật ở repo runtime-platform + một mục trong frontend.
 
 Dòng dữ liệu (dataset) -> `to_sample`. Lúc build: các prompt đã chọn (system, intent, gate, đủ nội dung + phiên bản)
 thành `spec`; `make_rows` biến mẫu thành dòng "như thật" (đầu vào + nhãn theo spec) gửi runtime. Ghép spec + dòng thành
@@ -78,7 +78,7 @@ class FinetuneTask(ABC):
     id: str
     name: str
     description: str
-    runtime_python: str  # python trong WSL chạy runtime/finetune/run.py cho loại này
+    runtime_python: str  # python trong WSL chạy run.py của runtime-platform cho loại này
     fields: tuple[Field, ...]
     params: tuple[Param, ...] = ()  # tham số riêng, thêm vào COMMON_PARAMS
     defaults: dict = {}  # ghi đè giá trị mặc định của tham số chung (lớp con gán dict mới, không sửa tại chỗ)

@@ -1,6 +1,6 @@
 """Eval: chấm nhiều model (model gốc và các adapter đã train) trên phần eval của một build rồi xếp hạng.
 Dữ liệu eval chỉ lấy từ build (đã ghép template + policy), nên mọi model được chấm trên đúng cùng một prompt.
-Tách riêng với phần chấm val định kỳ trong lúc train (runtime/finetune/common.py). Chạy qua hàng đợi GPU.
+Tách riêng với phần chấm val định kỳ trong lúc train (runtime-platform: runtime_platform/runner.py). Chạy qua hàng đợi GPU.
 
 data/finetune/evals/<id>/: meta.json, eval.json (gửi runtime), golden.jsonl, status.json, report.json
 """
