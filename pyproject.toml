@@ -16,4 +16,5 @@ ignore = ["B905"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."] # để `pytest` (không qua python -m) vẫn import được backend
 addopts = "-q"

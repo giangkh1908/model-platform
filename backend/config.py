@@ -37,7 +37,10 @@ DIFFUSERS_PY = f"{HOME}/model-platform/runtimes/diffusers/.venv/bin/python"
 
 def wsl_path(path: Path) -> str:
     """Đường dẫn Windows (ổ C:) nhìn từ trong WSL (/mnt/c/...)."""
-    drive, rest = path.resolve().as_posix().split(":", 1)
+    posix = path.resolve().as_posix()
+    if ":" not in posix:  # đang chạy trên Linux (vd. máy CI): đường dẫn đã đúng dạng Linux
+        return posix
+    drive, rest = posix.split(":", 1)
     return f"/mnt/{drive.lower()}{rest}"
 
 
