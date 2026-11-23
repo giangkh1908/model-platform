@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,8 @@ ENV_FILE = ROOT / ".env"
 # Nạp ngay khi import config (module được import đầu tiên), trước khi hf_token đọc biến.
 # Biến đã đặt sẵn trong Windows được ưu tiên hơn .env.
 load_dotenv(ENV_FILE, override=False)
-DATA = ROOT / "data"
+# Test và CI trỏ sang thư mục tạm để không đụng dữ liệu thật.
+DATA = Path(os.environ.get("MODEL_PLATFORM_DATA") or ROOT / "data")
 REGISTRY_FILE = DATA / "models.json"
 SETTINGS_FILE = DATA / "settings.json"
 FRONTEND_DIST = ROOT / "frontend" / "dist"
