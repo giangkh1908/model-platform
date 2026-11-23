@@ -4,7 +4,7 @@ Phía WSL: runtime/finetune/decider.py."""
 from __future__ import annotations
 
 from ..config import DECIDER_PY
-from .base import Chart, Field, FinetuneTask, Param, Series
+from .base import Field, FinetuneTask, Param
 from .data import norm_text
 from .prompts import render_body
 
@@ -33,12 +33,6 @@ class DeciderTask(FinetuneTask):
         Param("eval_batch_size", "Batch size khi chấm", 16, 1, 128, 1, advanced=True),
     )
     defaults = {"lr": 1e-4, "epochs": 2, "batch_size": 4, "grad_accum": 4}
-    charts = (
-        Chart("eval_acc", "Độ chính xác trên val",
-              (Series("eval", "acc", "Accuracy"), Series("eval", "macro_f1", "Macro-F1")), unit="%"),
-        Chart("eval_ece", "Sai lệch độ tin cậy (ECE) trên val", (Series("eval", "ece", "ECE"),), unit="%",
-              hint="Càng thấp càng tốt: độ tin cậy model báo khớp với tỉ lệ đúng thực tế."),
-    )
     example_rows = (
         {"text": "Tôi chuyển khoản rồi mà đơn vẫn báo chưa thanh toán", "label": "thanh_toan"},
         {"text": "Shipper không gọi cho tôi", "label": "van_chuyen"},

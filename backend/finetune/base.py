@@ -66,14 +66,10 @@ COMMON_PARAMS = (
           hint="Tiết kiệm VRAM, chậm hơn khoảng 30%.", advanced=True),
 )
 
+# Platform chỉ vẽ loss / eval loss; mọi chỉ số khác (learning rate, grad norm, VRAM, accuracy…) xem trên MLflow.
 COMMON_CHARTS = (
     Chart("loss", "Loss", (Series("train", "loss", "Train loss"), Series("eval", "loss", "Eval loss")),
           hint="Eval loss tăng trong khi train loss vẫn giảm: đang overfit."),
-    Chart("lr", "Learning rate", (Series("train", "lr", "Learning rate"),)),
-    Chart("speed", "Tốc độ (mẫu/giây)", (Series("train", "samples_per_s", "Mẫu/giây"),)),
-    Chart("vram", "VRAM cao nhất (GB)", (Series("train", "vram_gb", "VRAM"),)),
-    Chart("grad_norm", "Độ lớn gradient", (Series("train", "grad_norm", "Grad norm"),),
-          hint="Nhảy vọt liên tục: learning rate có thể quá cao."),
 )
 
 

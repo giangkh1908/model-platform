@@ -56,8 +56,9 @@ Có lỗi ở bất kỳ bước nào thì `state = "error"`, kèm `message` (v�
 | `eval` | Mỗi `eval_every` bước (và bước 0) | `step`, `epoch`, `best`, `loss` + chỉ số riêng của loại (vd. `acc`, `macro_f1`, `ece`) |
 | `final` | Sau khi lưu checkpoint | `best_step`, `best_eval_loss`, `train_seconds` + tóm tắt riêng (vd. decider: `threshold`) |
 
-Mọi dòng có thêm `time` (epoch seconds). Tên chỉ số phải khớp với `charts` mà loại fine-tune khai báo ở platform
-(`backend/finetune/<task>.py`), để giao diện vẽ được biểu đồ.
+Mọi dòng có thêm `time` (epoch seconds). Platform chỉ vẽ `loss` của dòng `train` và `eval`; mọi khoá số khác được
+chuyển sang MLflow với tiền tố theo `kind` (`train_lr`, `eval_acc`, `final_threshold_threshold`…), nên runtime
+thêm chỉ số mới thì không phải sửa platform.
 
 **Checkpoint** ở `output_dir`. Platform chạy thử checkpoint bằng runtime serving khai báo trong `model_entry` của
 loại fine-tune (vd. decider: `strands-decider serve`).

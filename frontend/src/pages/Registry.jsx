@@ -7,10 +7,10 @@ import { api, formatMetric, formatTime } from "../lib.js";
 import { useApp } from "../store.jsx";
 
 const METRICS = [
-  { key: "eval_acc", label: "Accuracy (eval)", unit: "%" },
-  { key: "eval_macro_f1", label: "Macro-F1 (eval)", unit: "%" },
-  { key: "eval_precision_at_threshold", label: "Precision tại ngưỡng", unit: "%" },
-  { key: "threshold", label: "Ngưỡng", unit: "" },
+  { key: "golden_acc", label: "Accuracy (eval)", unit: "%" },
+  { key: "golden_macro_f1", label: "Macro-F1 (eval)", unit: "%" },
+  { key: "golden_precision_at_threshold", label: "Precision tại ngưỡng", unit: "%" },
+  { key: "final_threshold_threshold", label: "Ngưỡng", unit: "" },
 ];
 
 function StatusCard({ status, onReload, loading }) {

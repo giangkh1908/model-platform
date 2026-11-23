@@ -95,7 +95,7 @@ Các mục trên thanh bên, đi theo thứ tự:
 1. **Dataset**: đẩy file (JSONL / JSON / CSV / TSV), chọn cột, lưu thành dataset. Dataset dùng cho build (train) và làm tập golden để eval.
 2. **Prompt**: template (khung prompt có chỗ `{policy}`, `{input}` và phần output) và policy (đoạn luật). Mỗi lần sửa là một phiên bản mới, phiên bản cũ giữ nguyên.
 3. **Build dataset**: ghép template + các cặp (policy, dataset) thành một phiên bản dữ liệu (`intent v1`), mỗi dòng thành một prompt hoàn chỉnh. Tuỳ chọn bỏ dòng trùng và chia train/val ngẫu nhiên (5–30%), hoặc thêm phần eval riêng. Có thêm dữ liệu thì mở build cũ, bấm **Tạo phiên bản mới** → `intent v2`. Build giữ bản sao dữ liệu và prompt đã dùng, nên train lại luôn ra đúng dữ liệu cũ.
-4. **Finetune**: chọn build + model (model gốc, hoặc adapter đã thêm vào danh sách Model để train tiếp) + tham số → **Thêm vào hàng đợi**. Trong lúc train, model được chấm định kỳ trên phần val; dashboard có train/eval loss, learning rate, tốc độ, VRAM, grad norm, accuracy/F1/ECE. **Dừng** là dừng ngay, không lưu checkpoint. Train xong giữ checkpoint có eval loss thấp nhất; **Thêm vào danh sách model** để bật và thử. Build có phần eval thì tự chấm sau khi train.
+4. **Finetune**: chọn build + model (model gốc, hoặc adapter đã thêm vào danh sách Model để train tiếp) + tham số → **Thêm vào hàng đợi**. Trong lúc train, model được chấm định kỳ trên phần val; trang job vẽ train loss / eval loss, các chỉ số khác (learning rate, grad norm, VRAM, accuracy, ngưỡng…) xem trên MLflow. **Dừng** là dừng ngay, không lưu checkpoint. Train xong giữ checkpoint có eval loss thấp nhất; **Thêm vào danh sách model** để bật và thử. Build có phần eval thì tự chấm sau khi train.
 5. **Eval**: chọn model gốc → tick các adapter đã train từ nó → chọn build. Bảng xếp hạng: accuracy, macro-F1, ECE, và TP / FP / FN / TN, precision, recall, F1, coverage tại ngưỡng riêng của từng adapter; kèm F1 từng nhãn, cặp nhãn hay nhầm và câu sai.
 
 - Hàng đợi GPU chung cho train và eval: mỗi lúc một việc, việc sau tự chạy. Tới lượt thì model đang chạy bị tắt; còn việc trong hàng đợi thì không bật được model.
@@ -104,9 +104,10 @@ Các mục trên thanh bên, đi theo thứ tự:
 
 Thêm loại fine-tune mới (vd. chat SFT): lớp con của `FinetuneTask` (`backend/finetune/`, đăng ký trong `tasks.py`), lớp con của `Task` (`runtime/finetune/`, đăng ký trong `run.py`) và một file giao diện đăng ký trong `frontend/src/finetune/tasks.js`. Phần chung không cần sửa.
 
-## Model registry (MLflow)
+## MLflow: theo dõi train và model registry
 
-Model train xong được **xuất bản** lên registry để `serving-platform` lấy về chạy.
+- **Theo dõi:** mỗi job train kết thúc (xong, lỗi hoặc bị dừng) được ghi thành một run trên MLflow (experiment `finetune`): toàn bộ chỉ số theo bước (`train_loss`, `train_lr`, `train_grad_norm`, `train_vram_gb`, `eval_loss`, `eval_acc`…, `final_*`), tham số và tag. Trang job trên platform chỉ vẽ loss / eval loss, có link sang run. MLflow tắt lúc job kết thúc thì bấm **Ghi lên MLflow** ở trang job để ghi bù.
+- **Registry:** model train xong được **xuất bản** để `serving-platform` lấy về chạy.
 
 - **MLflow server** (chạy bằng Docker) giữ metadata: tên model, phiên bản, alias, chỉ số, tag. Database SQLite nằm trong volume Docker `mlflow-db`.
 - **File model** hiện lưu trên máy ở `data/mlflow/artifacts`. MLflow tự chuyển file (`--serve-artifacts`), nên platform và serving chỉ cần địa chỉ MLflow, không cần biết file nằm ở đâu.
@@ -120,7 +121,7 @@ Model train xong được **xuất bản** lên registry để `serving-platform
 
 **Dùng:**
 
-- Trang chi tiết job train đã xong → **Xuất bản** → đặt tên model (cùng tên thì thành phiên bản mới). Kết quả của lần eval gần nhất có chấm job đó được đính kèm.
+- Trang chi tiết job train đã xong → **Xuất bản** → đặt tên model (cùng tên thì thành phiên bản mới). Checkpoint được thêm vào run của job, kèm kết quả lần eval gần nhất có chấm job đó (chỉ số `golden_*`).
 - Trang **Registry**: xem các phiên bản, gán alias **champion** (bản serving dùng) hoặc **challenger** (bản đang thử).
 
 **Một phiên bản gồm:**
@@ -130,7 +131,7 @@ Model train xong được **xuất bản** lên registry để `serving-platform
 | `model/` (file) | Checkpoint: LoRA, head, tokenizer, config, provenance |
 | `platform/` (file) | `task_config.json` (nhãn, câu hỏi), `params.json`, `final.json` (ngưỡng tự động…), `eval_report.json` nếu đã eval |
 | Tag (MLflow) | `prompt.template`, `prompt.policy` dạng `<tên>@v<N>`, model gốc, build, job, eval |
-| Chỉ số (MLflow) | `eval_acc`, `eval_macro_f1`, `eval_precision_at_threshold`, `threshold`, `best_eval_loss` |
+| Chỉ số (MLflow) | Lịch sử train của run (`train_*`, `eval_*`, `final_*`) và kết quả eval golden (`golden_acc`, `golden_macro_f1`, `golden_precision_at_threshold`…) |
 
 Không có trong gói: model gốc (tải từ Hugging Face theo tag `base_model_repo`), dữ liệu train, và nội dung prompt (chỉ ghi phiên bản, nội dung lấy từ kho prompt).
 

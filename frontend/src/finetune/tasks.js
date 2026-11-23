@@ -2,9 +2,6 @@
 // Phần chung (chọn file, chia dữ liệu, tham số, biểu đồ, hàng đợi) không cần sửa.
 //
 // Mỗi loại export:
-//   EVAL_COLUMNS                   [khoá, nhãn, đơn vị] cho bảng chỉ số eval
-//   headlineTiles(lastEval)        ô tóm tắt ở đầu trang job
-//   FinalSummary({final})          tóm tắt sau train (dòng "final" của metrics.jsonl)
 //   EvalReport({report})           báo cáo eval golden nhiều model (report.json): xếp hạng, chi tiết
 import * as decider from "./decider.jsx";
 

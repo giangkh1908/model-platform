@@ -1,8 +1,8 @@
-// Trang một job train: tiến độ, dashboard chỉ số (biểu đồ do backend khai báo, gồm cả eval loss chấm định kỳ trên val)
-// và tóm tắt sau train. Eval golden nằm ở trang Eval riêng. Phần riêng của từng loại lấy từ TASK_UI.
+// Trang một job train: tiến độ, loss / eval loss, xuất bản lên registry. Mọi chỉ số khác và tham số xem trên MLflow
+// (mỗi job kết thúc được ghi thành một run). Eval golden nằm ở trang Eval riêng.
 import { useEffect, useRef, useState } from "react";
-import { Boxes, ClipboardCheck, Package, Square, Trash2 } from "lucide-react";
-import { Bar, Card, Chip, Empty, Field, Spinner } from "../components/ui.jsx";
+import { Boxes, ClipboardCheck, ExternalLink, Package, Square, Trash2 } from "lucide-react";
+import { Bar, Card, Empty, Field, Spinner } from "../components/ui.jsx";
 import { api, duration, formatMetric, formatTime, saveLocal } from "../lib.js";
 import { go, useApp, useInterval } from "../store.jsx";
 import { StateChip, Tile, isActive } from "./common.jsx";
@@ -252,86 +252,58 @@ function PublishForm({ job, onDone }) {
   );
 }
 
-function Dashboard({ task, ui, metrics }) {
+// Chỉ loss / eval loss để theo dõi lúc train; mọi chỉ số khác (learning rate, grad norm, VRAM, accuracy, ngưỡng…)
+// và tham số xem trên MLflow: mỗi job kết thúc được ghi thành một run ở đó.
+function Dashboard({ task, metrics }) {
   const train = metrics.filter((m) => m.kind === "train");
   const evals = metrics.filter((m) => m.kind === "eval");
   const lastTrain = train[train.length - 1];
-  const lastEval = evals[evals.length - 1];
   const best = evals.reduce((a, b) => (a && a.loss <= b.loss ? a : b), null);
 
   return (
-    <Card title="Chỉ số">
+    <Card title="Loss">
       <div className="tiles">
         <Tile label="Train loss" value={formatMetric(lastTrain?.loss)} sub={lastTrain ? `bước ${lastTrain.step}` : "chưa có"} />
         <Tile label="Eval loss tốt nhất" value={formatMetric(best?.loss)} sub={best ? `bước ${best.step}` : "chưa có"} />
-        {ui.headlineTiles(lastEval).map((t) => (
-          <Tile key={t.label} label={t.label} value={t.value} sub={lastEval ? `bước ${lastEval.step}` : ""} />
-        ))}
-        <Tile label="Tốc độ" value={lastTrain ? `${formatMetric(lastTrain.samples_per_s)}/s` : "–"} sub="mẫu mỗi giây" />
-        <Tile label="VRAM cao nhất" value={lastTrain ? `${formatMetric(lastTrain.vram_gb)} GB` : "–"} />
       </div>
       <div className="charts">
         {task.charts.map((c) => (
           <LineChart key={c.id} title={c.title} hint={c.hint} unit={c.unit} series={seriesOf(metrics, c)} />
         ))}
       </div>
-      {evals.length > 0 && (
-        <details>
-          <summary className="small muted">Bảng số liệu các lần chấm val ({evals.length})</summary>
-          <div className="table-scroll">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th className="num">Bước</th>
-                  <th className="num">Epoch</th>
-                  {ui.EVAL_COLUMNS.map(([key, label]) => (
-                    <th key={key} className="num">
-                      {label}
-                    </th>
-                  ))}
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {evals.map((e) => (
-                  <tr key={e.step}>
-                    <td className="num">{e.step}</td>
-                    <td className="num">{e.epoch}</td>
-                    {ui.EVAL_COLUMNS.map(([key, , unit]) => (
-                      <td key={key} className="num">
-                        {formatMetric(e[key], unit)}
-                      </td>
-                    ))}
-                    <td>{e === best && <Chip kind="ok">tốt nhất</Chip>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      )}
     </Card>
   );
 }
 
-function BuildCard({ job }) {
-  return (
-    <Card title="Dữ liệu và tham số">
-      <div className="row wrap small">
-        <span className="strong">{job.build.title}</span>
-        <Chip>{job.build.train} train</Chip>
-        <Chip>{job.build.val} val</Chip>
-      </div>
-      <details>
-        <summary className="small muted">Tham số train</summary>
+// Link sang run trên MLflow; job kết thúc lúc MLflow tắt thì cho ghi bù.
+function MlflowCard({ job, reload }) {
+  const { busy, run } = useApp();
+
+  async function track() {
+    if (await run(`/api/finetune/jobs/${job.id}/track`, { method: "POST" }, "Đang ghi lên MLflow…")) reload();
+  }
+
+  if (job.mlflow_url) {
+    return (
+      <Card>
         <div className="row wrap small">
-          {Object.entries(job.params).map(([k, v]) => (
-            <Chip key={k}>
-              {k} = {String(v)}
-            </Chip>
-          ))}
+          <span className="muted">Learning rate, grad norm, VRAM, accuracy, ngưỡng, tham số…</span>
+          <a href={job.mlflow_url} target="_blank" rel="noreferrer">
+            Xem đầy đủ trên MLflow <ExternalLink size={12} />
+          </a>
         </div>
-      </details>
+      </Card>
+    );
+  }
+  if (!["done", "error", "stopped"].includes(job.state)) return null;
+  return (
+    <Card>
+      <div className="row wrap small">
+        <span className="muted">Job này chưa có trên MLflow (lúc kết thúc MLflow chưa chạy).</span>
+        <button type="button" className="btn sm" disabled={busy} onClick={track}>
+          Ghi lên MLflow
+        </button>
+      </div>
     </Card>
   );
 }
@@ -355,18 +327,11 @@ export default function JobDetail({ jobId, tasks, onDeleted }) {
       </Card>
     );
   }
-  const final = metrics.find((m) => m.kind === "final");
-
   return (
     <div className="stack">
       <Header job={job} status={status} position={position} onDeleted={onDeleted} reload={reload} />
-      <Dashboard task={task} ui={ui} metrics={metrics} />
-      {final && (
-        <Card title={`Sau train (checkpoint tốt nhất: bước ${final.best_step})`}>
-          <ui.FinalSummary final={final} />
-        </Card>
-      )}
-      <BuildCard job={job} />
+      <Dashboard task={task} metrics={metrics} />
+      <MlflowCard job={job} reload={reload} />
     </div>
   );
 }

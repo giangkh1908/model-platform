@@ -5,7 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..finetune import jobs as ft_jobs
 from ..finetune import publish as ft_publish
+from ..finetune import tracking as ft_tracking
 from ..model_registry import ALIASES, REGISTRY
 
 router = APIRouter()
@@ -45,10 +47,17 @@ def registry_delete_alias(name: str, alias: str):
 @router.get("/api/finetune/jobs/{item_id}/publish")
 def publish_defaults(item_id: str):
     """Tên mặc định và lần eval sẽ đính kèm, để hiện trước khi bấm xuất bản."""
-    job = ft_publish.jobs.JOBS.get(item_id)
-    found = ft_publish.latest_eval(item_id)
+    job = ft_jobs.JOBS.get(item_id)
+    found = ft_tracking.latest_eval(item_id)
     return {"name": ft_publish.default_name(job), "eval": found[0]["name"] if found else None,
             "published": job.get("published") or []}
+
+
+@router.post("/api/finetune/jobs/{item_id}/track")
+def track_job(item_id: str):
+    """Ghi bù job lên MLflow (vd. job kết thúc lúc MLflow đang tắt)."""
+    run = ft_tracking.log_job(item_id)
+    return {"message": "Đã ghi job lên MLflow.", **run}
 
 
 @router.post("/api/finetune/jobs/{item_id}/publish")

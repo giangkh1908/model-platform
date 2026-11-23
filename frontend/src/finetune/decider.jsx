@@ -1,60 +1,8 @@
 // Phần giao diện riêng của loại fine-tune "decider" (phân loại). Đăng ký trong finetune/tasks.js.
 import { useState } from "react";
 import { Chip } from "../components/ui.jsx";
-import { formatMetric, percent } from "../lib.js";
-import { Tile } from "./common.jsx";
+import { formatMetric } from "../lib.js";
 import LineChart from "./LineChart.jsx";
-
-// Cột chỉ số eval hiện trong bảng số liệu của job.
-export const EVAL_COLUMNS = [
-  ["loss", "Eval loss", ""],
-  ["acc", "Accuracy", "%"],
-  ["macro_f1", "Macro-F1", "%"],
-  ["ece", "ECE", "%"],
-];
-
-// Ô tóm tắt ở đầu trang job: lần eval mới nhất.
-export function headlineTiles(lastEval) {
-  if (!lastEval) return [];
-  return [
-    { label: "Accuracy (val)", value: formatMetric(lastEval.acc, "%") },
-    { label: "Macro-F1 (val)", value: formatMetric(lastEval.macro_f1, "%") },
-  ];
-}
-
-// Sau train: temperature, ngưỡng tự động/chuyển người chọn trên val.
-export function FinalSummary({ final }) {
-  const t = final.threshold;
-  const cal = final.val_calibrated;
-  const curve = final.val_curve || [];
-  return (
-    <div className="stack">
-      {!t.meets_target && (
-        <div className="notice warn">
-          Không ngưỡng nào đạt precision mục tiêu {percent(t.target_precision, 0)} trên val: đã chọn ngưỡng có F1 lớn nhất.
-        </div>
-      )}
-      <div className="tiles">
-        <Tile label="Ngưỡng tự động" value={formatMetric(t.threshold)} sub="độ tin cậy ≥ ngưỡng thì tự xử lý" />
-        <Tile label="Tự động được" value={formatMetric(t.coverage, "%")} sub="số câu trên val" />
-        <Tile label="Đúng trong phần tự động" value={formatMetric(t.precision, "%")} sub={`precision, mục tiêu ${percent(t.target_precision, 0)}`} />
-        <Tile label="Lỗi lọt qua" value={`${t.fp}`} sub={`trên ${t.tp + t.fp + t.fn + t.tn} câu val`} />
-        <Tile label="ECE sau hiệu chỉnh" value={formatMetric(cal.ece, "%")} sub={`temperature ${formatMetric(final.temperature)}`} />
-      </div>
-      {curve.length > 1 && (
-        <LineChart
-          title="Precision theo coverage trên val"
-          hint="Mỗi điểm là một ngưỡng: tự động bao nhiêu câu val thì phần tự động đúng bao nhiêu. Ngưỡng đã chọn là điểm tự động nhiều nhất mà vẫn đạt precision mục tiêu."
-          xLabel="Coverage"
-          formatX={(x) => formatMetric(x, "%")}
-          unit="%"
-          dots={false}
-          series={[{ label: "Precision", points: curve.map((c) => [c.coverage, c.precision]) }]}
-        />
-      )}
-    </div>
-  );
-}
 
 // Xếp hạng: accuracy cao hơn trước, bằng nhau thì macro-F1.
 function ranked(models) {

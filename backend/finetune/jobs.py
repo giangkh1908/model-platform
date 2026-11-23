@@ -26,6 +26,7 @@ from .tasks import task_of
 JOBS = MetaStore("jobs", "job")
 KIND = "train"
 DONE_HOOKS: list = []  # hàm(job_id) gọi sau khi job train xong
+FINISH_HOOKS: list = []  # hàm(meta, state) gọi khi job kết thúc dù xong, lỗi hay bị dừng (vd. ghi lên MLflow)
 
 
 def create(body: dict) -> dict:
@@ -142,6 +143,8 @@ def _prepare(meta: dict):
 def _finish(meta: dict, state: str) -> None:
     if state != "done":  # dừng hoặc lỗi giữa chừng: không giữ checkpoint dở
         CONNECTOR.remove_output(meta["output_dir"])
+    for hook in FINISH_HOOKS:
+        hook(meta, state)
 
 
 def _on_done(jid: str) -> None:
