@@ -20,8 +20,21 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import hf, presence
-from .config import (DEFAULT_OPTIONS, DEV_ORIGINS, DISTRO, FRONTEND_DIST, GPU_VRAM_GB, HOME, MODEL_URL,
-                     MODELS_DIR, NO_WINDOW, PANEL_HOST, PANEL_PORT, ROOT_PID_ENV, RUNTIME_NAMES)
+from .config import (
+    DEFAULT_OPTIONS,
+    DEV_ORIGINS,
+    DISTRO,
+    FRONTEND_DIST,
+    GPU_VRAM_GB,
+    HOME,
+    MODEL_URL,
+    MODELS_DIR,
+    NO_WINDOW,
+    PANEL_HOST,
+    PANEL_PORT,
+    ROOT_PID_ENV,
+    RUNTIME_NAMES,
+)
 from .core import LOG, health, hf_token, http_json, run
 from .downloads import delete_model, retry_download, start_download
 from .finetune import builds as ft_builds
@@ -37,7 +50,8 @@ from .finetune.tasks import task_of
 from .monitor import MON
 from .presence import PRESENCE
 from .registry import REG, mode_of
-from .runner import SERVER, OPTION_LIMITS, running_model, runtimes_info, update_model
+from .runner import OPTION_LIMITS, SERVER, running_model, runtimes_info, update_model
+
 
 def quit_platform() -> bool:
     """Hết tab giao diện: tắt model rồi dừng cả cây tiến trình (Vite, và tiến trình giám sát khi --reload).
@@ -438,7 +452,7 @@ def tts(body: TTSBody):
             message = None
         if message is None:
             raise
-        raise ValueError(message)
+        raise ValueError(message) from None
     return {"_ms": round((time.perf_counter() - t) * 1000), "audio": base64.b64encode(wav).decode("ascii")}
 
 

@@ -46,7 +46,7 @@ def parse_size(size: str) -> tuple[int, int]:
     try:
         w, h = (int(x) for x in size.lower().split("x"))
     except ValueError:
-        raise ValueError(f"Kích thước không hợp lệ: {size!r} (dạng 1024x1024)")
+        raise ValueError(f"Kích thước không hợp lệ: {size!r} (dạng 1024x1024)") from None
     for side in (w, h):
         if not MIN_SIDE <= side <= MAX_SIDE:
             raise ValueError(f"Mỗi cạnh phải từ {MIN_SIDE} đến {MAX_SIDE}.")

@@ -51,9 +51,9 @@ def search(query: str, kind: str = "", limit: int = 20) -> list[dict]:
     try:
         data = _hf_get("https://huggingface.co/api/models?" + urllib.parse.urlencode(params))
     except urllib.error.HTTPError as e:
-        raise ValueError(f"Hugging Face báo lỗi {e.code}.")
+        raise ValueError(f"Hugging Face báo lỗi {e.code}.") from None
     except OSError as e:
-        raise ValueError(f"Không kết nối được Hugging Face: {e}")
+        raise ValueError(f"Không kết nối được Hugging Face: {e}") from None
     return [{"repo": d.get("id") or d.get("modelId"), "downloads": d.get("downloads", 0), "likes": d.get("likes", 0),
              "pipeline_tag": d.get("pipeline_tag"), "gguf": "gguf" in (d.get("tags") or []),
              "updated": d.get("lastModified")} for d in data]
@@ -132,12 +132,12 @@ def inspect(text: str) -> dict:
         info = hf_api(repo)
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
-            raise ValueError("Model này cần token Hugging Face (gated). Dán token vào trang Cài đặt rồi thử lại.")
+            raise ValueError("Model này cần token Hugging Face (gated). Dán token vào trang Cài đặt rồi thử lại.") from None
         if e.code == 404:
-            raise ValueError(f"Không tìm thấy model {repo} trên Hugging Face.")
-        raise ValueError(f"Hugging Face báo lỗi {e.code}.")
+            raise ValueError(f"Không tìm thấy model {repo} trên Hugging Face.") from None
+        raise ValueError(f"Hugging Face báo lỗi {e.code}.") from None
     except OSError as e:
-        raise ValueError(f"Không kết nối được Hugging Face: {e}")
+        raise ValueError(f"Không kết nối được Hugging Face: {e}") from None
 
     repo = info.get("id", repo)
     sib = info.get("siblings", [])

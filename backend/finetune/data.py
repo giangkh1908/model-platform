@@ -48,7 +48,7 @@ def parse_table(name: str, text: str) -> tuple[str, list[dict]]:
             try:
                 row = json.loads(line)
             except ValueError:
-                raise ValueError(f"Dòng {i} không phải JSON hợp lệ.")
+                raise ValueError(f"Dòng {i} không phải JSON hợp lệ.") from None
             if not isinstance(row, dict):
                 raise ValueError(f"Dòng {i} phải là một object JSON ({{...}}).")
             rows.append(row)
@@ -56,7 +56,7 @@ def parse_table(name: str, text: str) -> tuple[str, list[dict]]:
         try:
             data = json.loads(text)
         except ValueError as e:
-            raise ValueError(f"File JSON không hợp lệ: {e}")
+            raise ValueError(f"File JSON không hợp lệ: {e}") from None
         if isinstance(data, dict):  # {"data": [...]} hoặc {"rows": [...]}
             data = next((v for v in data.values() if isinstance(v, list)), None)
         if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):

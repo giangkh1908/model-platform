@@ -19,8 +19,8 @@ from ..core import LOG, load_json, q, save_json, wsl
 from ..registry import REG
 from . import builds
 from .gpu_queue import QUEUE, RUNNERS, Runner
-from .tasks import task_of
 from .store import MetaStore, clean_name, make_id, read_jsonl, write_jsonl
+from .tasks import task_of
 
 JOBS = MetaStore("jobs", "job")
 KIND = "train"

@@ -112,7 +112,7 @@ class FinetuneTask(ABC):
     def build_config(self, template: dict, rendered: list[dict]) -> dict:
         """Cấu hình gửi cho runtime, rút từ template và các mẫu đã ghép (vd. câu hỏi, danh sách nhãn). Sai thì ValueError."""
 
-    def check_eval(self, samples: list[dict], config: dict, model_name: str) -> None:
+    def check_eval(self, samples: list[dict], config: dict, model_name: str) -> None:  # noqa: B027 — tuỳ chọn, mặc định không kiểm tra gì
         """Tập chấm có dùng được với model train bằng `config` không (vd. nhãn lạ). Sai thì ValueError."""
 
     @abstractmethod
@@ -135,7 +135,7 @@ class FinetuneTask(ABC):
             try:
                 number = float(value)
             except (TypeError, ValueError):
-                raise ValueError(f"{p.label}: giá trị không hợp lệ ({value!r}).")
+                raise ValueError(f"{p.label}: giá trị không hợp lệ ({value!r}).") from None
             if not p.min <= number <= p.max:
                 raise ValueError(f"{p.label} phải trong khoảng {p.min} – {p.max}.")
             out[p.key] = int(number) if isinstance(p.default, int) and not isinstance(p.default, bool) else number

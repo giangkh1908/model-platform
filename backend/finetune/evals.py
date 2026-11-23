@@ -14,8 +14,8 @@ from ..core import load_json, q, save_json
 from ..registry import REG
 from . import builds, jobs
 from .gpu_queue import QUEUE, RUNNERS, Runner
-from .tasks import task_of
 from .store import MetaStore, clean_name, make_id, write_jsonl
+from .tasks import task_of
 
 EVALS = MetaStore("evals", "lần eval")
 KIND = "eval"

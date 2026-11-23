@@ -9,9 +9,9 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from ..config import FINETUNE_RUN, wsl_path
 from ..core import LOG, health, load_json, popen_wsl, pump, q, wsl

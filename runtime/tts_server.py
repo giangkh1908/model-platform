@@ -55,7 +55,7 @@ def synthesize(body: dict) -> bytes:
         try:
             raw = base64.b64decode(ref, validate=True)
         except ValueError:
-            raise ValueError("File giọng mẫu không đọc được (cần file WAV).")
+            raise ValueError("File giọng mẫu không đọc được (cần file WAV).") from None
         fd, ref_path = tempfile.mkstemp(suffix=".wav")
         with os.fdopen(fd, "wb") as f:
             f.write(raw)
@@ -68,7 +68,7 @@ def synthesize(body: dict) -> bytes:
             else:
                 audio = TTS.infer(text, voice=voice)
     except Exception as e:  # lỗi từ thư viện (ví dụ file giọng mẫu hỏng) gửi lại cho người dùng
-        raise ValueError(f"Không sinh được giọng nói: {e}")
+        raise ValueError(f"Không sinh được giọng nói: {e}") from None
     finally:
         if ref_path and os.path.exists(ref_path):
             os.remove(ref_path)

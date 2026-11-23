@@ -6,8 +6,21 @@ import subprocess
 import threading
 import time
 
-from .config import DEFAULT_OPTIONS, DECIDER_BIN, DIFFUSERS_PY, IMAGE_SERVER, LLAMA_DIR, MODEL_PORT, MODEL_URL, \
-    RUNTIME_BINS, RUNTIME_NAMES, SERVER_PATTERNS, TTS_SERVER, VIENEU_PY, VLLM_BIN
+from .config import (
+    DECIDER_BIN,
+    DEFAULT_OPTIONS,
+    DIFFUSERS_PY,
+    IMAGE_SERVER,
+    LLAMA_DIR,
+    MODEL_PORT,
+    MODEL_URL,
+    RUNTIME_BINS,
+    RUNTIME_NAMES,
+    SERVER_PATTERNS,
+    TTS_SERVER,
+    VIENEU_PY,
+    VLLM_BIN,
+)
 from .core import LOG, health, http_json, popen_wsl, pump, q, wsl
 from .registry import REG, mode_of
 
@@ -28,7 +41,7 @@ def clean_options(runtime: str, opt: dict) -> dict:
         try:
             out[k] = max(lo, min(hi, typ(v)))
         except (TypeError, ValueError):
-            raise ValueError(f"Giá trị không hợp lệ cho {k}: {v!r}")
+            raise ValueError(f"Giá trị không hợp lệ cho {k}: {v!r}") from None
     return out
 
 
