@@ -15,7 +15,7 @@ def test_check_content_per_kind():
         "text": "Bạn là CSKH", "intent_question": "Khách cần gì?"}
     assert prompts.check_content("intent", {"text": "lỗi thanh toán", "khac": 1}) == {"text": "lỗi thanh toán"}
     assert prompts.check_content("gate", {"text": "lừa đảo"}) == {"text": "lừa đảo", "question": ""}
-    with pytest.raises(ValueError, match="Policy của gate"):
+    with pytest.raises(ValueError, match="Policy của gate không được để trống"):
         prompts.check_content("gate", {"text": "  "})
     with pytest.raises(ValueError, match="system, intent hoặc gate"):
         prompts.check_content("template", {"text": "x"})

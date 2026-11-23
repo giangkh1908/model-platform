@@ -12,6 +12,8 @@ from ..finetune import evals as ft_evals
 from ..finetune import jobs as ft_jobs
 from ..finetune import params_yaml as ft_params_yaml
 from ..finetune.gpu_queue import QUEUE as FT_QUEUE
+from ..finetune.prompts import LABELS as FT_PROMPT_LABELS
+from ..finetune.prompts import PROMPT_KINDS as FT_PROMPT_KINDS
 from ..finetune.prompts import PROMPTS as FT_PROMPTS
 from ..finetune.sources import SOURCES as FT_SOURCES
 from ..finetune.store import save_upload
@@ -105,6 +107,12 @@ def finetune_queue():
 @router.get("/api/finetune/sources")
 def finetune_sources():
     return {"sources": [s.public() for s in FT_SOURCES.values()]}
+
+
+@router.get("/api/finetune/prompt-kinds")
+def finetune_prompt_kinds():
+    """Khai báo các loại prompt (trường, nhãn, gợi ý) để giao diện vẽ form."""
+    return {"kinds": [k.public() for k in FT_PROMPT_KINDS], "labels": list(FT_PROMPT_LABELS)}
 
 
 @router.get("/api/finetune/prompts-status")

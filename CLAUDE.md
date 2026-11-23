@@ -5,7 +5,7 @@ Web local để tải, bật/tắt và thử các model AI chạy trong WSL (GPU
 - Backend: FastAPI trong `backend/`, chạy bằng `platform_server.py` (cổng 8100). Shortcut `Model Platform.lnk` (cả trong project và trên Desktop) gọi `pythonw.exe platform_server.py --open --dev`: chạy cả backend và Vite dev server cổng 5173, mở trình duyệt tới 5173, không hiện terminal. Log ghi vào `data/platform.log`. Đóng hết tab giao diện thì server tự tắt sau ~5 s (`backend/presence.py`, tắt cả model và Vite). Khi cần thì tắt tay bằng Task Manager (tiến trình `pythonw.exe` chạy `platform_server.py`).
 - Frontend: React + Vite trong `frontend/`. `npm run build` tạo `frontend/dist`, backend phục vụ thư mục này.
 - Phát triển: `python platform_server.py --reload` và `cd frontend && npm run dev` (http://127.0.0.1:5173, proxy `/api`).
-- Kiểm tra trước khi commit (CI chạy đúng các lệnh này, `.github/workflows/ci.yml`): `pip install -r requirements-dev.txt`, `ruff check .`, `pytest`; `cd frontend && npm run lint && npm run build`. Test chạy trên thư mục data tạm (`MODEL_PLATFORM_DATA`), không cần WSL/GPU.
+- Kiểm tra trước khi commit (CI chạy đúng các lệnh này, `.github/workflows/ci.yml`): `pip install -r requirements-dev.txt`, `ruff check .`, `pytest`; `cd frontend && npm run typecheck && npm run lint && npm run build`. Test chạy trên thư mục data tạm (`MODEL_PLATFORM_DATA`), không cần WSL/GPU.
 - API chia theo router trong `backend/api/` (system, models, playground, finetune); `backend/app.py` chỉ dựng app, middleware, lifespan. Đổi route thì cập nhật `tests/routes.txt`.
 - MLflow: `backend/model_registry.py` (interface `ModelRegistry`). Mỗi job kết thúc được ghi thành run (`backend/finetune/tracking.py`, hook `jobs.FINISH_HOOKS`); xuất bản job ở `backend/finetune/publish.py` dùng lại run đó. Trang job chỉ vẽ loss / eval loss, chỉ số khác xem trên MLflow. MLflow server chạy bằng `docker compose up -d`, file model hiện lưu ở `data/mlflow/artifacts` (sau chuyển Cloudflare R2, xem chú thích trong `docker-compose.yml`). Prompt không đóng gói vào registry, chỉ ghi tag `<tên>@v<N>`.
 - Giao diện và thông báo lỗi viết bằng tiếng Việt.
@@ -15,9 +15,10 @@ Web local để tải, bật/tắt và thử các model AI chạy trong WSL (GPU
 ## Quy tắc code (theo plugin code-simplifier)
 
 - Không đổi hành vi khi dọn code.
-- JS/React: ES modules, import có đuôi `.js`/`.jsx`; hàm cấp cao nhất và component dùng `function`, arrow function chỉ dùng cho callback ngắn.
+- Frontend là TypeScript strict (`tsconfig.json`): import có đuôi `.ts`/`.tsx`; hàm cấp cao nhất và component dùng `function`, arrow function chỉ dùng cho callback ngắn. Không dùng `any`.
+- Cấu trúc frontend: `src/api/` là lớp duy nhất gọi backend (component không viết URL hay gọi fetch); `src/types/api.ts` khai báo kiểu dữ liệu API (đổi API thì sửa ở đây trước); `src/config/` khai báo tĩnh (trang, runtime, hằng số, khoá localStorage); `src/lib/` hàm thuần; loại prompt và tham số train do backend khai báo, giao diện chỉ vẽ theo; giao diện riêng của từng loại fine-tune cài đặt interface `TaskUI` (`src/finetune/tasks.ts`). Lệnh làm thay đổi gọi qua `run(() => api.xxx(...))` của `useApp()`.
 - Không lồng toán tử ba ngôi; nhiều nhánh thì dùng `if/else` hoặc `switch`.
 - Chọn code rõ ràng hơn code ngắn; không viết one-liner dày đặc.
-- Không lặp logic: hàm dùng chung đặt ở `frontend/src/lib.js` (JS) hoặc `backend/core.py` (Python).
+- Không lặp logic: hàm dùng chung đặt ở `frontend/src/lib/` (TS) hoặc `backend/core.py` (Python).
 - Python: có type hint cho hàm cấp cao nhất; lỗi người dùng thì ném `ValueError` (app trả về 400).
 - Chỉ viết comment khi cần giải thích *tại sao*, không mô tả lại code.

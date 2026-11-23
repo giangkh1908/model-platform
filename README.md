@@ -166,6 +166,7 @@ pip install -r requirements-dev.txt   # một lần: ruff, pytest
 ruff check .                          # lint Python
 pytest                                # test backend
 cd frontend
+npm run typecheck                     # kiểm tra kiểu TypeScript
 npm run lint                          # lint giao diện
 npm run build
 ```
@@ -193,7 +194,8 @@ backend/                FastAPI
   presence.py           tự tắt khi không còn tab giao diện
   finetune/             prompt, dataset, build, job, eval, hàng đợi GPU, connector tới runtime, xuất bản
   model_registry.py     interface ModelRegistry (MLflow)
-frontend/               React + Vite (src/pages, src/playground, src/finetune, src/components)
+frontend/               React + Vite + TypeScript: src/api (gọi backend), src/types (kiểu dữ liệu API), src/config,
+                        src/lib, src/components, src/pages, src/finetune, src/playground
 runtime/                chạy trong WSL: finetune/ (train, eval), image_server.py, tts_server.py
 infra/mlflow/           Dockerfile của MLflow server (docker-compose.yml ở gốc)
 tests/                  pytest

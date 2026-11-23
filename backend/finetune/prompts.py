@@ -27,15 +27,59 @@ import threading
 import time
 import urllib.parse
 from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 
 from ..config import FINETUNE_DIR
 from ..core import LOG, load_json, save_json
 
-KINDS = ("system", "intent", "gate")
+
+@dataclass(frozen=True)
+class PromptField:
+    """Một trường nội dung. "text" là văn bản chính (prompt trên Langfuse), các trường khác nằm ở config."""
+
+    key: str
+    label: str
+    hint: str = ""
+    multiline: bool = False
+    required: bool = False
+
+
+@dataclass(frozen=True)
+class PromptKind:
+    id: str
+    label: str
+    help: str
+    fields: tuple[PromptField, ...]
+
+    def public(self) -> dict:
+        return asdict(self)
+
+
+# Khai báo duy nhất của các loại prompt: backend kiểm tra theo đây, giao diện vẽ form theo đây (/api/finetune/prompt-kinds).
+PROMPT_KINDS = (
+    PromptKind("system", "System",
+               "Bối cảnh chung của bộ quyết định (vd. \"Bạn là bộ phận CSKH của…\"). Runtime đặt nó đầu state, trước policy "
+               "và câu người dùng.",
+               (PromptField("text", "System prompt", multiline=True, required=True),
+                PromptField("intent_question", "Câu hỏi intent",
+                            "Bỏ trống = câu mặc định của runtime (\"Người dùng đang cần gì?…\")."))),
+    PromptKind("intent", "Intent",
+               "Mỗi intent một prompt: viết policy của intent đó (cái gì thuộc, cái gì không). Tên prompt là nhãn intent "
+               "trong dataset.",
+               (PromptField("text", "Policy của intent", multiline=True, required=True),)),
+    PromptKind("gate", "Gate",
+               "Mỗi gate một câu có/không (vd. lừa đảo, cần chuyển người): viết policy của gate. Tên prompt là nhãn gate "
+               "trong dataset.",
+               (PromptField("text", "Policy của gate", multiline=True, required=True),
+                PromptField("question", "Câu hỏi của gate",
+                            "Bỏ trống = câu mặc định (\"Câu của người dùng có thuộc trường hợp gate … không?\")."))),
+)
+KIND_BY_ID = {k.id: k for k in PROMPT_KINDS}
+KINDS = tuple(KIND_BY_ID)
 LABELS = ("dev", "prod")
 # Tên prompt cũng là nhãn trong dataset: chữ thường không dấu, số, "_" "-".
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,79}")
-OPTIONAL_FIELDS = {"system": ("intent_question",), "intent": (), "gate": ("question",)}
+OPTIONAL_FIELDS = {k.id: tuple(f.key for f in k.fields if f.key != "text") for k in PROMPT_KINDS}
 
 
 def check_kind(kind: str) -> str:
@@ -59,16 +103,13 @@ def check_name(name: str) -> str:
 
 
 def check_content(kind: str, content: dict) -> dict:
-    """Chuẩn hoá nội dung một phiên bản: {"text"} + các trường tuỳ chọn của loại. Sai thì ValueError."""
-    check_kind(kind)
-    text = str(content.get("text") or "").strip()
-    if not text:
-        raise ValueError({"system": "System prompt không được để trống.",
-                          "intent": "Policy của intent không được để trống.",
-                          "gate": "Policy của gate không được để trống."}[kind])
-    out = {"text": text}
-    for field in OPTIONAL_FIELDS[kind]:
-        out[field] = str(content.get(field) or "").strip()
+    """Chuẩn hoá nội dung một phiên bản theo khai báo của loại. Thiếu trường bắt buộc thì ValueError."""
+    out = {}
+    for field in KIND_BY_ID[check_kind(kind)].fields:
+        value = str(content.get(field.key) or "").strip()
+        if field.required and not value:
+            raise ValueError(f"{field.label} không được để trống.")
+        out[field.key] = value
     return out
 
 

@@ -17,6 +17,7 @@ GET /api/finetune/evals/{item_id}
 GET /api/finetune/jobs
 GET /api/finetune/jobs/{item_id}
 GET /api/finetune/jobs/{item_id}/publish
+GET /api/finetune/prompt-kinds
 GET /api/finetune/prompts-status
 GET /api/finetune/prompts/{kind}
 GET /api/finetune/prompts/{kind}/{item_id}
